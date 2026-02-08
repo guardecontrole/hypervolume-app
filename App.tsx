@@ -1071,7 +1071,7 @@ const App: React.FC = () => {
                   <thead className="bg-slate-900/80 text-[10px] uppercase font-black text-slate-500 sticky top-0 z-20">
                     <tr>
                       <th className="p-4 w-52 bg-slate-900 sticky left-0 z-30 shadow-[4px_0_8px_rgba(0,0,0,0.3)]">Exercício</th>
-                      <th className="p-4 w-20 text-center sticky left-52 z-30 bg-slate-900 shadow-[4px_0_8px_rgba(0,0,0,0.3)]">Séries</th>
+                      <th className="p-4 w-28 text-center sticky left-52 z-30 bg-slate-900 shadow-[4px_0_8px_rgba(0,0,0,0.3)]">Séries</th>
                       {visibleMuscles.map(m => {
                         const isRelevantToFocusedEx = focusedPlanExerciseId ? (focusedPlanExerciseData?.muscles.some(mu => mu.name === m) ?? false) : false;
                         const isPrimary = focusedPlanExerciseId ? (focusedPlanExerciseData?.muscles.some(mu => mu.name === m && mu.type === 'principal') ?? false) : false;
@@ -1123,7 +1123,7 @@ const App: React.FC = () => {
                                       <div className={`w-1 h-4 rounded-full mr-1 transition-colors ${isRowFocused ? (isDeloadActive ? 'bg-emerald-400' : 'bg-indigo-400') : (isDeloadActive ? 'bg-emerald-500/20' : 'bg-indigo-500/20')}`}></div>
                                       <span className="truncate">{item.name}</span>
                                     </td>
-                                    <td className="p-4 w-20 sticky left-52 bg-inherit z-10 shadow-[4px_0_8px_rgba(0,0,0,0.15)]" onClick={(e) => e.stopPropagation()}>
+                                    <td className="p-4 w-28 sticky left-52 bg-inherit z-10 shadow-[4px_0_8px_rgba(0,0,0,0.15)]" onClick={(e) => e.stopPropagation()}>
                                       <input 
                                         type="number" 
                                         value={item.series || ''} 
