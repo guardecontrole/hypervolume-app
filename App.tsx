@@ -1124,14 +1124,14 @@ const App: React.FC = () => {
                                       <span className="truncate">{item.name}</span>
                                     </td>
                                     <td className="p-4 w-28 sticky left-52 bg-inherit z-10 shadow-[4px_0_8px_rgba(0,0,0,0.15)]" onClick={(e) => e.stopPropagation()}>
-                                      <input 
-                                        type="number" 
-                                        value={item.series || ''} 
-                                        onFocus={(e) => { e.target.select(); setFocusedPlanExerciseId(item.id); }} 
-                                        onBlur={() => setFocusedPlanExerciseId(null)}
-                                        onChange={e => updateSeries(item.id, e.target.value === '' ? 0 : parseInt(e.target.value))} 
-                                        className={`w-full bg-slate-800/30 border rounded-lg p-2 text-center font-black outline-none transition-all ${isRowFocused ? (isDeloadActive ? 'border-emerald-500 text-emerald-300 ring-2 ring-emerald-500/20' : 'border-indigo-500 text-indigo-300 ring-2 ring-indigo-500/20') : (isDeloadActive ? 'border-slate-700/30 text-emerald-400' : 'border-slate-700/30 text-indigo-400')}`} 
-                                      />
+                                     <input 
+  type="number" 
+  value={item.series} 
+  onFocus={(e) => { e.target.select(); setFocusedPlanExerciseId(item.id); }} 
+  onBlur={() => setFocusedPlanExerciseId(null)}
+  onChange={e => updateSeries(item.id, e.target.value === '' ? 0 : parseInt(e.target.value))} 
+  className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 text-center text-white font-black outline-none focus:ring-2 focus:ring-indigo-500 transition-all" 
+/>
                                     </td>
                                     {visibleMuscles.map(m => {
                                       const muscleData = ex?.muscles.find(mu => mu.name === m);
