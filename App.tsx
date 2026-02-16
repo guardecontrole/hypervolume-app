@@ -1042,7 +1042,6 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- DEMAIS ABAS MANTIDAS --- */}
         {activeTab === 'strength' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -1614,73 +1613,6 @@ const App: React.FC = () => {
             </div>
           </div>
         )}
-
-        {activeTab === 'history' && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
-            <div className="flex justify-between items-center relative z-40 bg-slate-950/50 backdrop-blur-sm p-2 rounded-2xl">
-              <div>
-                <h2 className="text-3xl font-black uppercase tracking-tighter">Histórico de Performance</h2>
-                <p className="text-slate-500 text-sm font-bold uppercase tracking-widest mt-1">Seus registros de treinamento semanais</p>
-              </div>
-              {workoutHistory.length > 0 && (
-                <button 
-                  onClick={clearHistory}
-                  className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-red-500/20 transition-all shadow-lg active:scale-95"
-                >
-                  Limpar Tudo
-                </button>
-              )}
-            </div>
-            {workoutHistory.length === 0 ? (
-              <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-20 text-center space-y-4">
-                <span className="text-6xl opacity-10">🗓️</span>
-                <p className="text-slate-500 font-medium italic">Nenhum registro encontrado.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
-                {workoutHistory.map((log) => (
-                  <div key={log.id} className={`bg-slate-900 border rounded-[2rem] p-6 shadow-xl relative group overflow-hidden transition-all hover:border-indigo-500/50 ${isDeloadActive ? 'border-emerald-500/20 hover:border-emerald-500/50' : 'border-slate-800'}`}>
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex-1 min-w-0 pr-4">
-                        <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest mb-2 inline-block transition-colors ${isDeloadActive ? 'bg-emerald-400/10 text-emerald-400' : 'bg-indigo-400/10 text-indigo-400'}`}>S{log.week} • {log.phase || 'Geral'}</span>
-                        <h3 className="text-xl font-black text-white truncate">{log.name}</h3>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">{new Date(log.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
-                      </div>
-                      <button 
-                        onClick={() => removeHistoryItem(log.id)}
-                        className="text-slate-400 hover:text-red-500 transition-all p-2 bg-slate-800/50 hover:bg-slate-800 rounded-xl active:scale-90"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 mt-6">
-                      <div className="bg-slate-950/50 p-4 rounded-2xl border border-slate-800/50">
-                        <span className="text-[8px] font-black text-slate-500 uppercase block mb-1">Volume Total</span>
-                        <span className={`text-lg font-black transition-colors ${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'}`}>{log.totalSeries} <span className="text-[10px] text-slate-600">Séries</span></span>
-                      </div>
-                      <div className="bg-slate-950/50 p-4 rounded-2xl border border-slate-800/50">
-                        <span className="text-lg font-black text-slate-300">{(Object.values(log.split) as WorkoutExercise[][]).filter(d => d.length > 0).length} <span className="text-[10px] text-slate-600">Dias</span></span>
-                      </div>
-                    </div>
-                    <div className="mt-6 pt-6 border-t border-slate-800/50">
-                       <h4 className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">Distribuição de Músculos</h4>
-                       <div className="flex flex-wrap gap-1.5">
-                          {Object.entries(calculateMuscleVolumeForLog(log))
-                            .filter(([_, vol]) => (vol as number) > 0)
-                            .slice(0, 5)
-                            .map(([muscle, _]) => (
-                               <span key={muscle} className="text-[8px] font-bold text-slate-400 bg-slate-800 px-2 py-1 rounded-md">{getShortMuscleName(muscle)}</span>
-                            ))}
-                       </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </main>
 
       {/* Modais */}
@@ -1720,8 +1652,14 @@ const App: React.FC = () => {
       {showSettings && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
            {/* Settings Modal Content */}
-           <div className="bg-slate-900 border border-slate-700 w-full max-w-xl rounded-[2.5rem] p-10">
-               <h3 className="text-white mb-4">Configurações</h3>
+           <div className="bg-slate-900 border border-slate-700 w-full max-w-xl rounded-[2.5rem] p-10 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto no-scrollbar">
+               <h3 className="text-2xl font-black mb-8 uppercase tracking-tighter flex justify-between items-center">
+                  <span>Perfil do Atleta</span>
+                  <button onClick={() => setShowSettings(false)} className="text-slate-500 hover:text-white transition-colors">
+                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+               </h3>
+               
                <div className="space-y-10">
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                    <div>
@@ -1732,6 +1670,24 @@ const App: React.FC = () => {
                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Peso Corporal Atual (kg)</label>
                      <input type="number" value={strengthInputs.bw || ''} onFocus={(e) => e.target.select()} onChange={(e) => setStrengthInputs(prev => ({ ...prev, bw: parseFloat(e.target.value) || 0 }))} className={`w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 outline-none transition-all text-white font-bold ${isDeloadActive ? 'focus:ring-2 focus:ring-emerald-500' : 'focus:ring-2 focus:ring-indigo-500'}`} />
                    </div>
+                 </div>
+
+                 {/* NOVOS CAMPOS DE 1RM NO MODAL */}
+                 <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-4">Seus Recordes (1RM)</label>
+                    <div className="grid grid-cols-2 gap-4">
+                       {['Supino', 'Agachamento', 'Levantamento Terra', 'Remada Curvada'].map(ex => (
+                          <div key={ex}>
+                             <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">{ex}</label>
+                             <input 
+                               type="number" 
+                               value={strengthProfiles[ex] || ''} 
+                               onChange={(e) => setStrengthProfiles(prev => ({ ...prev, [ex]: parseFloat(e.target.value) || 0 }))}
+                               className="w-full bg-slate-800 border border-slate-700 rounded-2xl p-3 outline-none transition-all text-white font-bold focus:ring-2 focus:ring-indigo-500 text-sm"
+                             />
+                          </div>
+                       ))}
+                    </div>
                  </div>
 
                  <div>
@@ -1755,7 +1711,7 @@ const App: React.FC = () => {
                     </div>
                  </div>
                </div>
-               <button onClick={() => setShowSettings(false)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg mt-6 w-full font-bold">Salvar e Fechar</button>
+               <button onClick={() => setShowSettings(false)} className="bg-indigo-600 text-white px-4 py-3 rounded-xl mt-8 w-full font-bold shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 transition-all">Salvar e Fechar</button>
            </div>
         </div>
       )}
