@@ -3,9 +3,9 @@ import {
   PlanItem, 
   WorkoutSplit, 
   WorkoutExercise, 
-  WorkoutLog, 
-  PeriodizationPhase, 
-  Exercise, 
+  WorkoutLog,
+  PeriodizationPhase,
+  Exercise,
   WorkoutSet 
 } from './types';
 import { 
@@ -1042,12 +1042,9 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* ... (Demais abas mantidas como antes: strength, history, etc.) ... */}
         {activeTab === 'strength' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                 {/* ... conteúdo strength abreviado para caber na resposta, mas você deve manter o original ou copiar o bloco strength completo da resposta anterior se precisar ... */}
-                 {/* Vou colocar o bloco completo da Strength aqui para garantir que não quebre */}
                  <div className={`lg:col-span-3 bg-slate-900 border rounded-[2.5rem] p-10 md:p-16 shadow-2xl relative overflow-hidden transition-colors ${isDeloadActive ? 'border-emerald-500/30' : 'border-slate-800'}`}>
                      <div className={`absolute top-0 right-0 w-64 h-64 blur-[100px] rounded-full transition-colors ${isDeloadActive ? 'bg-emerald-600/5' : 'bg-indigo-600/5'}`}></div>
                      <div className="max-w-3xl relative z-10">
@@ -1080,7 +1077,6 @@ const App: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                  <div className="lg:col-span-1 bg-slate-900 border border-slate-800 rounded-[2rem] p-8 shadow-xl space-y-6">
                     <h3 className="text-lg font-black uppercase tracking-tight text-white mb-4">Calculadora</h3>
-                    {/* ... Inputs de força ... */}
                     <div className="space-y-2">
                        <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Exercício Base</label>
                        <select 
@@ -1134,7 +1130,6 @@ const App: React.FC = () => {
                       Salvar no Perfil de Força
                     </button>
                  </div>
-                 {/* ... Resto da aba Força ... */}
                  <div className="lg:col-span-2 space-y-8">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                        <div className={`bg-slate-900 border rounded-[2rem] p-10 flex flex-col items-center justify-center text-center shadow-xl group transition-all duration-500 ${isDeloadActive ? 'hover:border-emerald-500/50 border-emerald-900/40' : 'border-slate-800 hover:border-indigo-500/50'}`}>
