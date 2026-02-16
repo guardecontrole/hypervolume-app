@@ -54,7 +54,7 @@ const App: React.FC = () => {
   const [manualMethodology, setManualMethodology] = useState<string>('');
   const [userName, setUserName] = useState<string>('Atleta');
   const [strengthProfiles, setStrengthProfiles] = useState<Record<string, number>>({});
-  const [activeDays, setActiveDays] = useState<string[]>(DAYS_OF_WEEK.slice(0, 5)); // Padrão Seg-Sex
+  const [activeDays, setActiveDays] = useState<string[]>(DAYS_OF_WEEK.slice(0, 5)); 
   const [isDeloadActive, setIsDeloadActive] = useState(false);
   const [strengthInputs, setStrengthInputs] = useState({
     exercise: 'Supino',
@@ -63,7 +63,6 @@ const App: React.FC = () => {
     reps: 0
   });
 
-  // Super Set Selection State
   const [superSetSelection, setSuperSetSelection] = useState<{ day: string, sourceId: number } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -74,7 +73,6 @@ const App: React.FC = () => {
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [logName, setLogName] = useState('');
   const [targetDay, setTargetDay] = useState<string | null>(null);
-  const [numTrainingDays, setNumTrainingDays] = useState(4);
   const [showSecondary, setShowSecondary] = useState(false);
   const [saveButtonText, setSaveButtonText] = useState('💾 Salvar Semana');
   const [draggedItem, setDraggedItem] = useState<{ exercise: WorkoutExercise, fromDay: string } | null>(null);
@@ -83,8 +81,6 @@ const App: React.FC = () => {
   const [expandedExerciseId, setExpandedExerciseId] = useState<number | null>(null);
   const [collapsedCategories, setCollapsedCategories] = useState<string[]>([]);
   const [focusedPlanExerciseId, setFocusedPlanExerciseId] = useState<number | null>(null);
-
-  // Achievements State
   const [achievement, setAchievement] = useState<any>(null);
 
   useEffect(() => {
@@ -230,120 +226,23 @@ const App: React.FC = () => {
     );
   };
 
-  const handleInitiateSuperSet = (day: string, id: number) => {
-    if (isDeloadActive) return;
-    setSuperSetSelection({ day, sourceId: id });
-  };
+  // ... (Other handlers unchanged for brevity, but needed in full file) ...
+  const handleInitiateSuperSet = (day: string, id: number) => { if (isDeloadActive) return; setSuperSetSelection({ day, sourceId: id }); };
+  const handleQuickLink = (day: string, currentId: number, nextId: number) => { if (isDeloadActive) return; const newSuperSetId = Math.random().toString(36).substr(2, 9); setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => (ex.id === currentId || ex.id === nextId) ? { ...ex, superSetId: newSuperSetId } : ex) })); };
+  const handleExerciseClick = (day: string, targetId: number) => { if (!superSetSelection || isDeloadActive) return; if (superSetSelection.day !== day) { alert("Selecione um exercício do mesmo dia."); setSuperSetSelection(null); return; } if (superSetSelection.sourceId === targetId) { setSuperSetSelection(null); return; } const targetEx = workouts[day].find(ex => ex.id === targetId); const exData = PREDEFINED_EXERCISES.find(e => e.name === targetEx?.name); if (exData?.isCompound && !exData?.isGuided) { alert("Proibido: Super Sets são permitidos apenas para exercícios Metabólicos (Máquinas ou Isolados)."); setSuperSetSelection(null); return; } const newSuperSetId = Math.random().toString(36).substr(2, 9); setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => (ex.id === superSetSelection.sourceId || targetId === ex.id) ? { ...ex, superSetId: newSuperSetId } : ex) })); setSuperSetSelection(null); };
+  const handleBreakSuperSet = (day: string, superSetId: string) => { setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => ex.superSetId === superSetId ? { ...ex, superSetId: undefined } : ex) })); };
 
-  const handleQuickLink = (day: string, currentId: number, nextId: number) => {
-    if (isDeloadActive) return;
-    const newSuperSetId = Math.random().toString(36).substr(2, 9);
-    setWorkouts(prev => ({
-      ...prev,
-      [day]: prev[day].map(ex => 
-        (ex.id === currentId || ex.id === nextId)
-          ? { ...ex, superSetId: newSuperSetId }
-          : ex
-      )
-    }));
-  };
-
-  const handleExerciseClick = (day: string, targetId: number) => {
-    if (!superSetSelection || isDeloadActive) return;
-
-    if (superSetSelection.day !== day) {
-      alert("Selecione um exercício do mesmo dia.");
-      setSuperSetSelection(null);
-      return;
-    }
-
-    if (superSetSelection.sourceId === targetId) {
-      setSuperSetSelection(null);
-      return;
-    }
-
-    const targetEx = workouts[day].find(ex => ex.id === targetId);
-    const exData = PREDEFINED_EXERCISES.find(e => e.name === targetEx?.name);
-    
-    if (exData?.isCompound && !exData?.isGuided) {
-      alert("Proibido: Super Sets são permitidos apenas para exercícios Metabólicos (Máquinas ou Isolados).");
-      setSuperSetSelection(null);
-      return;
-    }
-
-    const newSuperSetId = Math.random().toString(36).substr(2, 9);
-    setWorkouts(prev => ({
-      ...prev,
-      [day]: prev[day].map(ex => 
-        (ex.id === superSetSelection.sourceId || targetId === ex.id)
-          ? { ...ex, superSetId: newSuperSetId }
-          : ex
-      )
-    }));
-    setSuperSetSelection(null);
-  };
-
-  const handleBreakSuperSet = (day: string, superSetId: string) => {
-    setWorkouts(prev => ({
-      ...prev,
-      [day]: prev[day].map(ex => 
-        ex.superSetId === superSetId 
-          ? { ...ex, superSetId: undefined } 
-          : ex
-      )
-    }));
-  };
-
-  const handleExportBackup = () => {
-    const allData = { ...localStorage };
-    const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    const today = new Date().toISOString().split('T')[0];
-    link.download = `backup_hypervolume_${today}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImportBackup = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const backupData = JSON.parse(e.target?.result as string);
-        
-        if (window.confirm("Atenção: A importação substituirá todos os seus dados atuais. O aplicativo será reiniciado. Deseja continuar?")) {
-          localStorage.clear();
-          Object.keys(backupData).forEach((key) => {
-            localStorage.setItem(key, backupData[key]);
-          });
-          alert('Backup restaurado com sucesso! O app será reiniciado.');
-          window.location.reload(); 
-        }
-      } catch (error) {
-        alert('Erro ao ler o arquivo de backup. Verifique se é um JSON válido.');
-        console.error(error);
-      }
-    };
-    reader.readAsText(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
+  const handleExportBackup = () => { const allData = { ...localStorage }; const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; const today = new Date().toISOString().split('T')[0]; link.download = `backup_hypervolume_${today}.json`; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url); };
+  const handleImportBackup = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { const backupData = JSON.parse(e.target?.result as string); if (window.confirm("Atenção: A importação substituirá todos os seus dados atuais. O aplicativo será reiniciado. Deseja continuar?")) { localStorage.clear(); Object.keys(backupData).forEach((key) => { localStorage.setItem(key, backupData[key]); }); alert('Backup restaurado com sucesso! O app será reiniciado.'); window.location.reload(); } } catch (error) { alert('Erro ao ler o arquivo de backup. Verifique se é um JSON válido.'); console.error(error); } }; reader.readAsText(file); if (fileInputRef.current) fileInputRef.current.value = ''; };
 
   if (!isMounted) return null;
 
   const monitorPRs = (newLog: WorkoutLog) => {
     const exercisesToCheck = ['Supino', 'Agachamento', 'Levantamento Terra', 'Remada Curvada'];
     const bw = strengthInputs.bw || 80;
-    
     let updatedProfiles = { ...strengthProfiles };
     let foundNewPR = false;
     let achievementData = null;
-
     const oldGlobal = calculateGlobalStrengthLevel(updatedProfiles, bw);
 
     Object.values(newLog.split).flat().forEach((ex: WorkoutExercise) => {
@@ -351,123 +250,28 @@ const App: React.FC = () => {
       if (baseExName) {
         const currentPR = updatedProfiles[baseExName] || 0;
         let best1RMInSesssion = 0;
-
-        if (ex.sets && ex.sets.length > 0) {
-          ex.sets.forEach(set => {
-            if (set.load && set.reps > 0) {
-              const calc = calculate1RM(set.load, set.reps);
-              if (calc > best1RMInSesssion) best1RMInSesssion = calc;
-            }
-          });
-        } else if (ex.load && ex.reps > 0) {
-          best1RMInSesssion = calculate1RM(ex.load, ex.reps);
-        }
-
-        if (best1RMInSesssion > currentPR + 0.1) {
-          updatedProfiles[baseExName] = best1RMInSesssion;
-          foundNewPR = true;
-          
-          const newGlobal = calculateGlobalStrengthLevel(updatedProfiles, bw);
-          achievementData = {
-            exercise: baseExName,
-            old1RM: currentPR,
-            new1RM: best1RMInSesssion,
-            oldScore: oldGlobal.score,
-            newScore: newGlobal.score,
-            oldLevel: oldGlobal.fullLevel,
-            newLevel: newGlobal.fullLevel,
-            changedLevel: oldGlobal.name !== newGlobal.name
-          };
-        }
+        if (ex.sets && ex.sets.length > 0) { ex.sets.forEach(set => { if (set.load && set.reps > 0) { const calc = calculate1RM(set.load, set.reps); if (calc > best1RMInSesssion) best1RMInSesssion = calc; } }); } else if (ex.load && ex.reps > 0) { best1RMInSesssion = calculate1RM(ex.load, ex.reps); }
+        if (best1RMInSesssion > currentPR + 0.1) { updatedProfiles[baseExName] = best1RMInSesssion; foundNewPR = true; const newGlobal = calculateGlobalStrengthLevel(updatedProfiles, bw); achievementData = { exercise: baseExName, old1RM: currentPR, new1RM: best1RMInSesssion, oldScore: oldGlobal.score, newScore: newGlobal.score, oldLevel: oldGlobal.fullLevel, newLevel: newGlobal.fullLevel, changedLevel: oldGlobal.name !== newGlobal.name }; }
       }
     });
-
-    if (foundNewPR) {
-      setStrengthProfiles(updatedProfiles);
-      setAchievement(achievementData);
-    }
+    if (foundNewPR) { setStrengthProfiles(updatedProfiles); setAchievement(achievementData); }
   };
 
-  const handleSaveExercise = (day: string, exercise: WorkoutExercise) => {
-    const newLog: WorkoutLog = {
-      id: Date.now(),
-      date: new Date().toISOString(),
-      name: `Log: ${exercise.name}`,
-      totalSeries: exercise.sets?.length || exercise.series || 0,
-      split: { [day]: [JSON.parse(JSON.stringify(exercise))] },
-      phase: activePhase?.name,
-      week: currentWeek
-    };
-    monitorPRs(newLog);
-    setWorkoutHistory(prev => [newLog, ...prev]);
-  };
-
-  const saveStrengthRecord = () => {
-     if (strengthResult.oneRM > 0) {
-       setStrengthProfiles(prev => ({
-           ...prev,
-           [strengthInputs.exercise]: strengthResult.oneRM
-       }));
-       alert(`1RM de ${strengthInputs.exercise} atualizado: ${strengthResult.oneRM.toFixed(1)}kg`);
-     }
-  };
-
-  const handlePhaseActivation = (phaseId: string) => {
-      setActivePhaseId(phaseId);
-      setCurrentWeek(1);
-  };
-
-  const addToPlan = (name: string) => {
-    setWeeklyPlan(prev => {
-        if (prev.find(p => p.name === name)) return prev;
-        return [...prev, { id: Date.now(), name, series: 0 }];
-    });
-  };
-
-  const addToDay = (day: string, name: string, series?: number) => {
-    const sCount = series || 3;
-    const initialSets: WorkoutSet[] = Array.from({ length: sCount }).map(() => ({
-      id: Math.random().toString(36).substr(2, 9),
-      reps: 10,
-      load: null,
-      rir: activePhase ? activePhase.rirTarget : null
-    }));
-
-    setWorkouts(prev => {
-        const newEx: WorkoutExercise = { 
-            id: Date.now() + Math.random(), 
-            name, 
-            series: sCount, 
-            sets: initialSets,
-            reps: 10, 
-            load: null, 
-            rir: activePhase ? activePhase.rirTarget : null 
-        };
-        const currentDayExs = prev[day] || [];
-        return {...prev, [day]: [...currentDayExs, newEx]};
-    });
-  };
-
+  const handleSaveExercise = (day: string, exercise: WorkoutExercise) => { const newLog: WorkoutLog = { id: Date.now(), date: new Date().toISOString(), name: `Log: ${exercise.name}`, totalSeries: exercise.sets?.length || exercise.series || 0, split: { [day]: [JSON.parse(JSON.stringify(exercise))] }, phase: activePhase?.name, week: currentWeek }; monitorPRs(newLog); setWorkoutHistory(prev => [newLog, ...prev]); };
+  const saveStrengthRecord = () => { if (strengthResult.oneRM > 0) { setStrengthProfiles(prev => ({ ...prev, [strengthInputs.exercise]: strengthResult.oneRM })); alert(`1RM de ${strengthInputs.exercise} atualizado: ${strengthResult.oneRM.toFixed(1)}kg`); } };
+  const handlePhaseActivation = (phaseId: string) => { setActivePhaseId(phaseId); setCurrentWeek(1); };
+  const addToPlan = (name: string) => { setWeeklyPlan(prev => { if (prev.find(p => p.name === name)) return prev; return [...prev, { id: Date.now(), name, series: 0 }]; }); };
+  const addToDay = (day: string, name: string, series?: number) => { const sCount = series || 3; const initialSets: WorkoutSet[] = Array.from({ length: sCount }).map(() => ({ id: Math.random().toString(36).substr(2, 9), reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null })); setWorkouts(prev => { const newEx: WorkoutExercise = { id: Date.now() + Math.random(), name, series: sCount, sets: initialSets, reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null }; const currentDayExs = prev[day] || []; return {...prev, [day]: [...currentDayExs, newEx]}; }); };
   const updateSeries = (id: number, series: number) => setWeeklyPlan(prev => prev.map(p => p.id === id ? { ...p, series } : p));
   const removeFromPlan = (id: number) => setWeeklyPlan(prev => prev.filter(p => p.id !== id));
   const updateWorkoutEx = (day: string, id: number, data: Partial<WorkoutExercise>) => setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => ex.id === id ? { ...ex, ...data } : ex)}));
   const removeWorkoutEx = (day: string, id: number) => setWorkouts(prev => ({ ...prev, [day]: prev[day].filter(ex => ex.id !== id)}));
-
+  
   const handleSaveWeek = () => {
     const allExs = (Object.values(workouts) as WorkoutExercise[][]).reduce((acc: WorkoutExercise[], v) => acc.concat(v), []);
     const totalSeries = allExs.reduce((acc, ex) => acc + (ex.sets?.length || ex.series || 0), 0);
     if (totalSeries === 0) return;
-
-    const newLog: WorkoutLog = {
-      id: Date.now(),
-      date: new Date().toISOString(),
-      name: logName || `S${currentWeek} - ${activePhase?.name || 'Geral'}`,
-      totalSeries,
-      split: JSON.parse(JSON.stringify(workouts)),
-      phase: activePhase?.name,
-      week: currentWeek
-    };
-    
+    const newLog: WorkoutLog = { id: Date.now(), date: new Date().toISOString(), name: logName || `S${currentWeek} - ${activePhase?.name || 'Geral'}`, totalSeries, split: JSON.parse(JSON.stringify(workouts)), phase: activePhase?.name, week: currentWeek };
     monitorPRs(newLog);
     setWorkoutHistory(prev => [newLog, ...prev]);
     setIsSaveModalOpen(false);
@@ -477,132 +281,20 @@ const App: React.FC = () => {
     setTimeout(() => setSaveButtonText('💾 Salvar Semana'), 2000);
   };
 
-  const handleApplyReturn = (newSplit: WorkoutSplit, phaseId: string) => {
-    setWorkouts(newSplit);
-    setActivePhaseId(phaseId);
-    setCurrentWeek(1);
-    setActiveTab('workouts');
-  };
-
-  const removeHistoryItem = (id: number) => {
-    if (window.confirm("Tem certeza que deseja excluir este treino?")) {
-      setWorkoutHistory(prev => prev.filter(item => item.id !== id));
-    }
-  };
-
-  const clearHistory = () => {
-    if (window.confirm("Tem certeza que deseja apagar TODO o histórico? Essa ação é irreversível.")) {
-      setWorkoutHistory([]);
-    }
-  };
-
-  const handleDragStart = (exercise: WorkoutExercise, fromDay: string) => {
-    if (isDeloadActive) return;
-    setDraggedItem({ exercise, fromDay });
-  };
-
-  const handleDragOver = (e: React.DragEvent, day: string) => {
-    e.preventDefault();
-    if (isDeloadActive) return;
-    setDragOverDay(day);
-  };
-
-  const handleDragLeave = () => {
-    setDragOverDay(null);
-  };
-
-  const handleDrop = (e: React.DragEvent, toDay: string) => {
-    e.preventDefault();
-    setDragOverDay(null);
-    if (!draggedItem || draggedItem.fromDay === toDay || isDeloadActive) {
-      setDraggedItem(null);
-      return;
-    }
-
-    setWorkouts(prev => {
-      const sourceDayExs = (prev[draggedItem.fromDay] || []).filter(ex => ex.id !== draggedItem.exercise.id);
-      const targetDayExs = [...(prev[toDay] || []), draggedItem.exercise];
-      
-      return {
-        ...prev,
-        [draggedItem.fromDay]: sourceDayExs,
-        [toDay]: targetDayExs
-      };
-    });
-    setDraggedItem(null);
-  };
-
-  const generateSmartSplit = () => {
-    const split: WorkoutSplit = {};
-    const effectiveDays = activeDays.length > 0 ? activeDays : DAYS_OF_WEEK.slice(0, 4);
-    effectiveDays.forEach(d => split[d] = []);
-    
-    const categories: Record<string, PlanItem[]> = { 'Push': [], 'Pull': [], 'Legs': [], 'Core/Accessory': [] };
-    weeklyPlan.filter(p => p.series > 0).forEach(item => {
-        const cat = classifyExercise(item.name, PREDEFINED_EXERCISES);
-        categories[cat].push(item);
-    });
-    
-    effectiveDays.forEach((day, idx) => {
-        const rotationIdx = idx % 3;
-        const targetCat = rotationIdx === 0 ? 'Push' : rotationIdx === 1 ? 'Pull' : 'Legs';
-        categories[targetCat].forEach(item => {
-            const freq = Math.max(1, effectiveDays.length / 3);
-            const seriesPerDay = Math.ceil(item.series / freq);
-            const currentTotal = (Object.values(split) as WorkoutExercise[][]).flat().filter(ex => ex.name === item.name).reduce((a,b) => a + (b.sets?.length || b.series), 0);
-            if (currentTotal < item.series) {
-                const toAdd = Math.min(seriesPerDay, item.series - currentTotal);
-                const initialSets: WorkoutSet[] = Array.from({ length: toAdd }).map(() => ({
-                  id: Math.random().toString(36).substr(2, 9),
-                  reps: 10,
-                  load: null,
-                  rir: activePhase ? activePhase.rirTarget : null
-                }));
-                split[day].push({ id: Date.now() + Math.random(), name: item.name, series: toAdd, sets: initialSets, reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null });
-            }
-        });
-        split[day] = sortExercisesSmartly(split[day]);
-    });
-    setWorkouts(split);
-    setActiveTab('workouts');
-  };
-
-  const toggleExpandExercise = (id: number) => {
-    setExpandedExerciseId(prev => prev === id ? null : id);
-  };
-
-  const getPhaseHeaderStyle = () => {
-    if (isDeloadActive) return 'bg-emerald-950/30 border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.15)]';
-    if (!activePhase) return 'bg-slate-900 border-slate-800';
-    return 'bg-indigo-950/30 border-indigo-500/30 shadow-none';
-  };
-
-  const getPhaseIconStyle = () => {
-    if (isDeloadActive) return 'bg-emerald-600';
-    if (!activePhase) return 'bg-slate-700';
-    return 'bg-indigo-600';
-  };
-
-  const getVolumeStatusColor = (status?: string) => {
-    switch(status) {
-      case 'MANUTENÇÃO': return 'text-blue-400 bg-blue-400/10 border-blue-400/20';
-      case 'PRODUTIVO': return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
-      case 'OTIMIZADO': return 'text-indigo-400 bg-indigo-400/10 border-indigo-400/20';
-      case 'LIMITE': return 'text-orange-400 bg-orange-400/10 border-orange-400/20';
-      default: return 'text-slate-400 bg-slate-400/10 border-slate-400/20';
-    }
-  };
-
-  const handleSortPlan = () => {
-    setWeeklyPlan(prev => sortExercisesSmartly(prev));
-  };
-
-  const handleSortDay = (day: string) => {
-    setWorkouts(prev => ({
-        ...prev,
-        [day]: sortExercisesSmartly(prev[day])
-    }));
-  };
+  const handleApplyReturn = (newSplit: WorkoutSplit, phaseId: string) => { setWorkouts(newSplit); setActivePhaseId(phaseId); setCurrentWeek(1); setActiveTab('workouts'); };
+  const removeHistoryItem = (id: number) => { if (window.confirm("Tem certeza que deseja excluir este treino?")) { setWorkoutHistory(prev => prev.filter(item => item.id !== id)); } };
+  const clearHistory = () => { if (window.confirm("Tem certeza que deseja apagar TODO o histórico? Essa ação é irreversível.")) { setWorkoutHistory([]); } };
+  const handleDragStart = (exercise: WorkoutExercise, fromDay: string) => { if (isDeloadActive) return; setDraggedItem({ exercise, fromDay }); };
+  const handleDragOver = (e: React.DragEvent, day: string) => { e.preventDefault(); if (isDeloadActive) return; setDragOverDay(day); };
+  const handleDragLeave = () => { setDragOverDay(null); };
+  const handleDrop = (e: React.DragEvent, toDay: string) => { e.preventDefault(); setDragOverDay(null); if (!draggedItem || draggedItem.fromDay === toDay || isDeloadActive) { setDraggedItem(null); return; } setWorkouts(prev => { const sourceDayExs = (prev[draggedItem.fromDay] || []).filter(ex => ex.id !== draggedItem.exercise.id); const targetDayExs = [...(prev[toDay] || []), draggedItem.exercise]; return { ...prev, [draggedItem.fromDay]: sourceDayExs, [toDay]: targetDayExs }; }); setDraggedItem(null); };
+  const generateSmartSplit = () => { const split: WorkoutSplit = {}; const effectiveDays = activeDays.length > 0 ? activeDays : DAYS_OF_WEEK.slice(0, 4); effectiveDays.forEach(d => split[d] = []); const categories: Record<string, PlanItem[]> = { 'Push': [], 'Pull': [], 'Legs': [], 'Core/Accessory': [] }; weeklyPlan.filter(p => p.series > 0).forEach(item => { const cat = classifyExercise(item.name, PREDEFINED_EXERCISES); categories[cat].push(item); }); effectiveDays.forEach((day, idx) => { const rotationIdx = idx % 3; const targetCat = rotationIdx === 0 ? 'Push' : rotationIdx === 1 ? 'Pull' : 'Legs'; categories[targetCat].forEach(item => { const freq = Math.max(1, effectiveDays.length / 3); const seriesPerDay = Math.ceil(item.series / freq); const currentTotal = (Object.values(split) as WorkoutExercise[][]).flat().filter(ex => ex.name === item.name).reduce((a,b) => a + (b.sets?.length || b.series), 0); if (currentTotal < item.series) { const toAdd = Math.min(seriesPerDay, item.series - currentTotal); const initialSets: WorkoutSet[] = Array.from({ length: toAdd }).map(() => ({ id: Math.random().toString(36).substr(2, 9), reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null })); split[day].push({ id: Date.now() + Math.random(), name: item.name, series: toAdd, sets: initialSets, reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null }); } }); split[day] = sortExercisesSmartly(split[day]); }); setWorkouts(split); setActiveTab('workouts'); };
+  const toggleExpandExercise = (id: number) => { setExpandedExerciseId(prev => prev === id ? null : id); };
+  const getPhaseHeaderStyle = () => { if (isDeloadActive) return 'bg-emerald-950/30 border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.15)]'; if (!activePhase) return 'bg-slate-900 border-slate-800'; return 'bg-indigo-950/30 border-indigo-500/30 shadow-none'; };
+  const getPhaseIconStyle = () => { if (isDeloadActive) return 'bg-emerald-600'; if (!activePhase) return 'bg-slate-700'; return 'bg-indigo-600'; };
+  const getVolumeStatusColor = (status?: string) => { switch(status) { case 'MANUTENÇÃO': return 'text-blue-400 bg-blue-400/10 border-blue-400/20'; case 'PRODUTIVO': return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'; case 'OTIMIZADO': return 'text-indigo-400 bg-indigo-400/10 border-indigo-400/20'; case 'LIMITE': return 'text-orange-400 bg-orange-400/10 border-orange-400/20'; default: return 'text-slate-400 bg-slate-400/10 border-slate-400/20'; } };
+  const handleSortPlan = () => { setWeeklyPlan(prev => sortExercisesSmartly(prev)); };
+  const handleSortDay = (day: string) => { setWorkouts(prev => ({ ...prev, [day]: sortExercisesSmartly(prev[day]) })); };
 
   return (
     <div className={`min-h-screen pb-24 md:pb-20 transition-colors duration-500 ${isDeloadActive ? 'bg-slate-950' : 'bg-slate-950'}`}>
@@ -657,140 +349,7 @@ const App: React.FC = () => {
 
       <main className="max-w-7xl mx-auto px-4 py-6 md:py-10">
         {activeTab === 'analysis' && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className={`flex flex-col md:flex-row justify-between items-center bg-slate-900 p-6 rounded-3xl border shadow-xl gap-4 transition-colors ${isDeloadActive ? 'border-emerald-500/30' : 'border-slate-800'}`}>
-                  <div>
-                    <div className="flex items-center gap-3">
-                        <h2 className="text-xl font-black uppercase tracking-tight">Dashboard de Performance</h2>
-                        <span className={`text-[10px] font-black px-2 py-0.5 rounded border uppercase tracking-widest transition-all ${isDeloadActive ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'}`}>Motor Reativo v2.0</span>
-                    </div>
-                  </div>
-                  <div className="flex bg-slate-800 p-1.5 rounded-2xl border border-slate-700">
-                      <button 
-                        onClick={() => setAnalysisView('realtime')}
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisView === 'realtime' ? (isDeloadActive ? 'bg-emerald-600' : 'bg-indigo-600') + ' text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-                      >
-                        Tempo Real
-                      </button>
-                      <button 
-                        onClick={() => setAnalysisView('statistics')}
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisView === 'statistics' ? (isDeloadActive ? 'bg-emerald-600' : 'bg-indigo-600') + ' text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-                      >
-                        Estatísticas
-                      </button>
-                      <button 
-                        onClick={() => setAnalysisView('ia')}
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisView === 'ia' ? (isDeloadActive ? 'bg-emerald-600' : 'bg-indigo-600') + ' text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-                      >
-                        Consultoria IA
-                      </button>
-                  </div>
-                </div>
-
-                {analysisView === 'ia' ? (
-                  <AICoach history={workoutHistory} plan={weeklyPlan} phase={activePhase} strengthProfiles={strengthProfiles} userName={userName} />
-                ) : analysisView === 'realtime' ? (
-                  <div className="space-y-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl flex flex-col items-center justify-center text-center space-y-4">
-                            <div className="relative w-32 h-32 flex items-center justify-center">
-                                <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90 overflow-visible">
-                                    <circle cx="50" cy="50" r="42" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-800" />
-                                    <circle cx="50" cy="50" r="42" stroke="currentColor" strokeWidth="8" fill="transparent" className={isDeloadActive ? "text-emerald-500" : "text-indigo-500"} strokeDasharray="263.9" strokeDashoffset={263.9 - (263.9 * (analysisData?.recoveryScore || 0)) / 100} strokeLinecap="round" />
-                                </svg>
-                                <span className="absolute text-3xl font-black">{analysisData?.recoveryScore || 0}%</span>
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-bold">Resiliência Metabólica</h3>
-                                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Prontidão Neuromuscular</p>
-                            </div>
-                        </div>
-                        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl flex flex-col justify-between overflow-y-auto max-h-[400px] no-scrollbar">
-                            <h4 className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mb-4 sticky top-0 bg-slate-900 pb-2 z-10">Volume Adaptativo</h4>
-                            <div className="space-y-4">
-                                {(showSecondary ? MUSCLE_SORT_ORDER : MUSCULOS_GRANDES).map(m => {
-                                    const currentVol = analysisData?.muscleTrends[m]?.[analysisData.muscleTrends[m].length - 1] || 0;
-                                    const status = getVolumeLevelData(m, currentVol, globalStrength.score);
-                                    return (
-                                        <div key={m} className="space-y-1">
-                                            <div className="flex justify-between text-[10px] font-bold">
-                                                <span className="text-slate-300">{m}</span>
-                                                <span className={status.color}>{status.label} ({currentVol.toFixed(1)}S)</span>
-                                            </div>
-                                            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                                                <div className={`${status.level === 5 ? 'bg-red-500' : (isDeloadActive ? 'bg-emerald-500' : 'bg-indigo-500')} h-full transition-all duration-1000`} style={{ width: `${Math.min(100, (currentVol / (24 * (0.6 + globalStrength.score/100))) * 100)}%` }}></div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
-                            <h4 className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mb-4">Risk Matrix</h4>
-                            <div className="space-y-3">
-                                {isDeloadActive ? (
-                                    <div className="flex gap-3 bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl">
-                                        <span className="text-emerald-400">🛡️</span>
-                                        <p className="text-xs text-emerald-100 font-bold leading-tight">MÓDULO DE RECUPERAÇÃO ATIVO: Riscos de fadiga suspensos. Foco em restauração.</p>
-                                    </div>
-                                ) : (
-                                    analysisData?.warnings.length === 0 ? (
-                                        <p className="text-slate-500 text-sm italic py-4">Nenhum risco detectado. Ótima recuperação!</p>
-                                    ) : (
-                                        analysisData?.warnings.map((w, i) => (
-                                            <div key={i} className="flex gap-3 bg-red-500/10 border-red-500/20 p-3 rounded-xl">
-                                                <span className="text-red-400">⚠️</span>
-                                                <p className="text-xs text-red-100 font-medium leading-tight">{w}</p>
-                                            </div>
-                                        ))
-                                    )
-                                )}
-                                {!isDeloadActive && Object.entries(recuperationRisks).map(([day, muscles]) => (
-                                    <div key={day} className="flex gap-3 bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-xl">
-                                        <span className="text-yellow-400">⏳</span>
-                                        <p className="text-xs text-yellow-100 font-medium leading-tight">
-                                            Conflito de descanso em <strong>{day}</strong>: {(muscles as string[]).join(', ')}.
-                                        </p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                    <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl">
-                        <div className="flex justify-between items-center mb-8">
-                           <h3 className="text-xl font-black uppercase tracking-tight">Workload Global (Tonelagem)</h3>
-                           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Toneladas Movidas / Músculo</span>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                            {(showSecondary ? MUSCLE_SORT_ORDER : MUSCULOS_GRANDES).map(m => {
-                                const data = analysisData?.workloadTrends[m] || [];
-                                const maxVal = Math.max(...data, 1);
-                                const currentWorkload = data[data.length - 1] || 0;
-                                return (
-                                    <div key={m} className="bg-slate-950/50 p-4 rounded-2xl border border-slate-800/50">
-                                        <div className="flex justify-between items-center mb-4">
-                                            <div className="flex items-center gap-2">
-                                                <span>{getMuscleEmoji(m)}</span>
-                                                <span className="text-[10px] font-black text-slate-400 uppercase">{getShortMuscleName(m)}</span>
-                                            </div>
-                                            <span className="text-[10px] font-black text-emerald-400">{(currentWorkload / 1000).toFixed(1)}t</span>
-                                        </div>
-                                        <div className="flex items-end gap-1.5 h-16">
-                                            {data.map((v, idx) => (
-                                                <div key={idx} className={`${isDeloadActive ? 'bg-emerald-500/40 border-emerald-400' : 'bg-indigo-500/40 border-indigo-400'} flex-1 border-t-2 rounded-t-sm transition-all`} style={{ height: `${(v / maxVal) * 100}%` }}></div>
-                                            ))}
-                                            {data.length === 0 && <div className="text-slate-800 text-[10px] italic">Sem dados</div>}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                  </div>
-                ) : (
-                  <StatisticsDashboard history={workoutHistory} />
-                )}
-            </div>
+             <StatisticsDashboard history={workoutHistory} />
         )}
 
         {activeTab === 'plan' && (
@@ -803,12 +362,10 @@ const App: React.FC = () => {
                 </div>
                 <div className="flex gap-4">
                   <button onClick={handleSortPlan} className={`bg-slate-800 hover:bg-slate-700 px-6 py-3 rounded-xl font-bold flex items-center gap-2 border transition-all ${isDeloadActive ? 'text-emerald-400 border-emerald-500/20' : 'text-indigo-400 border-indigo-500/20'}`}>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"/></svg>
                     Organizar Tabela
                   </button>
                   <button onClick={() => { setTargetDay(null); setShowSelector(true); }} className={`px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-xl transition-all ${isDeloadActive ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20' : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/20'} text-white`}>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-                    Adicionar Exercício
+                    + Adicionar Exercício
                   </button>
                 </div>
               </div>
@@ -822,7 +379,6 @@ const App: React.FC = () => {
                       {visibleMuscles.map(m => {
                         const isRelevantToFocusedEx = focusedPlanExerciseId ? (focusedPlanExerciseData?.muscles.some(mu => mu.name === m) ?? false) : false;
                         const isPrimary = focusedPlanExerciseId ? (focusedPlanExerciseData?.muscles.some(mu => mu.name === m && mu.type === 'principal') ?? false) : false;
-                        
                         return (
                           <th key={m} className={`p-4 w-24 text-center min-w-[100px] transition-all duration-300 ${focusedPlanExerciseId ? (isRelevantToFocusedEx ? (isPrimary ? (isDeloadActive ? 'text-emerald-400 bg-emerald-500/10' : 'text-indigo-400 bg-indigo-500/10') : 'text-purple-400 bg-purple-500/10') : 'opacity-20 grayscale') : ''}`}>
                             {getShortMuscleName(m)}
@@ -840,34 +396,21 @@ const App: React.FC = () => {
                         if (items.length === 0) return null;
                         const isCollapsed = collapsedCategories.includes(category);
                         const categorySeries = items.reduce((acc, item) => acc + (item.series || 0), 0);
-
                         return (
                           <React.Fragment key={category}>
-                            <tr 
-                              className="group bg-slate-950 cursor-pointer hover:bg-slate-900 transition-colors border-y border-slate-800/50"
-                              onClick={() => toggleCategory(category)}
-                            >
+                            <tr className="group bg-slate-950 cursor-pointer hover:bg-slate-900 transition-colors border-y border-slate-800/50" onClick={() => toggleCategory(category)}>
                               <td className={`p-4 sticky left-0 bg-slate-950 group-hover:bg-slate-900 z-30 font-black text-xs flex items-center gap-3 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors ${isDeloadActive ? 'text-emerald-300' : 'text-indigo-300'}`}>
                                 <svg className={`w-4 h-4 transition-transform ${isCollapsed ? '' : 'rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7"/></svg>
                                 <span>{category.toUpperCase()}</span>
-                                {isCollapsed && (
-                                  <span className={`ml-2 text-[10px] px-2 py-0.5 rounded-md ${isDeloadActive ? 'bg-emerald-900/50 text-emerald-400' : 'bg-indigo-900/50 text-indigo-400'}`}>
-                                    {categorySeries}S
-                                  </span>
-                                )}
+                                {isCollapsed && <span className={`ml-2 text-[10px] px-2 py-0.5 rounded-md ${isDeloadActive ? 'bg-emerald-900/50 text-emerald-400' : 'bg-indigo-900/50 text-indigo-400'}`}>{categorySeries}S</span>}
                               </td>
-                              <td className={`p-4 text-center font-black text-xs sticky left-64 bg-slate-950 group-hover:bg-slate-900 z-30 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors ${isDeloadActive ? 'text-emerald-400/60' : 'text-indigo-400/60'}`}>
-                                {!isCollapsed && `${categorySeries}S`}
-                              </td>
-                              <td colSpan={visibleMuscles.length + 1} className="p-4 text-[10px] text-slate-600 font-bold uppercase tracking-widest italic bg-slate-950 group-hover:bg-slate-900 transition-colors">
-                                {items.length} {items.length === 1 ? 'exercício' : 'exercícios'} neste grupo
-                              </td>
+                              <td className={`p-4 text-center font-black text-xs sticky left-64 bg-slate-950 group-hover:bg-slate-900 z-30 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors ${isDeloadActive ? 'text-emerald-400/60' : 'text-indigo-400/60'}`}>{!isCollapsed && `${categorySeries}S`}</td>
+                              <td colSpan={visibleMuscles.length + 1} className="p-4 text-[10px] text-slate-600 font-bold uppercase tracking-widest italic bg-slate-950 group-hover:bg-slate-900 transition-colors">{items.length} {items.length === 1 ? 'exercício' : 'exercícios'} neste grupo</td>
                             </tr>
                             {!isCollapsed && items.map(item => {
                               const ex = PREDEFINED_EXERCISES.find(e => e.name === item.name);
                               const isExpanded = expandedExerciseId === item.id;
                               const isRowFocused = focusedPlanExerciseId === item.id;
-                              
                               return (
                                 <React.Fragment key={item.id}>
                                   <tr className={`group transition-all hover:bg-slate-800/30 ${isExpanded ? 'bg-slate-800/40' : 'bg-slate-900'} ${focusedPlanExerciseId && !isRowFocused ? 'opacity-30 grayscale' : ''}`} onClick={() => toggleExpandExercise(item.id)}>
@@ -876,23 +419,14 @@ const App: React.FC = () => {
                                       <span className="truncate flex-1 min-w-0 cursor-pointer">{item.name}</span>
                                     </td>
                                     <td className={`p-2 w-20 sticky left-64 z-30 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors bg-slate-950 group-hover:bg-slate-900`} onClick={(e) => e.stopPropagation()}>
-                                      <input 
-                                        type="number" 
-                                        value={item.series || ''} 
-                                        onFocus={(e) => { e.target.select(); setFocusedPlanExerciseId(item.id); }} 
-                                        onBlur={() => setFocusedPlanExerciseId(null)}
-                                        onChange={e => updateSeries(item.id, e.target.value === '' ? 0 : parseInt(e.target.value))} 
-                                        className={`w-full bg-slate-800/50 border rounded-lg p-1.5 text-center font-black outline-none transition-all ${isRowFocused ? (isDeloadActive ? 'border-emerald-500 text-emerald-300 ring-2 ring-emerald-500/20' : 'border-indigo-500 text-indigo-300 ring-2 ring-indigo-500/20') : (isDeloadActive ? 'border-slate-700/30 text-emerald-400' : 'border-slate-700/30 text-indigo-400')}`} 
-                                      />
+                                      <input type="number" value={item.series || ''} onFocus={(e) => { e.target.select(); setFocusedPlanExerciseId(item.id); }} onBlur={() => setFocusedPlanExerciseId(null)} onChange={e => updateSeries(item.id, e.target.value === '' ? 0 : parseInt(e.target.value))} className={`w-full bg-slate-800/50 border rounded-lg p-1.5 text-center font-black outline-none transition-all ${isRowFocused ? (isDeloadActive ? 'border-emerald-500 text-emerald-300 ring-2 ring-emerald-500/20' : 'border-indigo-500 text-indigo-300 ring-2 ring-indigo-500/20') : (isDeloadActive ? 'border-slate-700/30 text-emerald-400' : 'border-slate-700/30 text-indigo-400')}`} />
                                     </td>
                                     {visibleMuscles.map(m => {
                                       const muscleData = ex?.muscles.find(mu => mu.name === m);
                                       const individualVolume = (item.series || 0) * (muscleData?.contribution || 0);
                                       const val = muscleData ? individualVolume.toFixed(1) : '-';
-                                      
                                       const isCellRelevantToFocusedEx = isRowFocused && muscleData;
                                       const isPrimaryInCell = muscleData?.type === 'principal';
-                                      
                                       return (
                                         <td key={m} className={`p-2 text-center text-xs relative transition-all duration-300 ${val !== '-' ? 'text-slate-100 font-bold' : 'text-slate-700 opacity-20'} ${isCellRelevantToFocusedEx ? (isPrimaryInCell ? (isDeloadActive ? 'bg-emerald-500/20 text-emerald-200 scale-110 shadow-lg shadow-emerald-500/10' : 'bg-indigo-500/20 text-indigo-200 scale-110 shadow-lg shadow-indigo-500/10') : 'bg-purple-500/10 text-purple-300 scale-105') : focusedPlanExerciseId && isRowFocused ? 'opacity-10 scale-95' : ''}`}>
                                           <span className="relative z-10">{val}</span>
@@ -917,24 +451,11 @@ const App: React.FC = () => {
                                               <div key={idx} className={`p-5 rounded-3xl border transition-all ${m.type === 'principal' ? (isDeloadActive ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-indigo-500/5 border-indigo-500/20') : 'bg-slate-800/30 border-slate-700/50'}`}>
                                                 <div className="flex justify-between items-start mb-3">
                                                   <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-xl">
-                                                      {getMuscleEmoji(m.name)}
-                                                    </div>
-                                                    <div>
-                                                      <h5 className="font-black text-sm text-white">{m.name}</h5>
-                                                      <span className={`text-[8px] font-black uppercase tracking-widest ${m.type === 'principal' ? (isDeloadActive ? 'text-emerald-400' : 'text-indigo-400') : 'text-slate-500'}`}>{m.type}</span>
-                                                    </div>
+                                                    <div className="w-10 h-10 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-xl">{getMuscleEmoji(m.name)}</div>
+                                                    <div><h5 className="font-black text-sm text-white">{m.name}</h5><span className={`text-[8px] font-black uppercase tracking-widest ${m.type === 'principal' ? (isDeloadActive ? 'text-emerald-400' : 'text-indigo-400') : 'text-slate-500'}`}>{m.type}</span></div>
                                                   </div>
-                                                  <div className="text-right">
-                                                    <span className="text-lg font-black text-white">{Math.round(m.contribution * 100)}%</span>
-                                                    <p className="text-[8px] text-slate-600 font-bold uppercase">Contribuição</p>
-                                                  </div>
+                                                  <div className="text-right"><span className="text-lg font-black text-white">{Math.round(m.contribution * 100)}%</span><p className="text-[8px] text-slate-600 font-bold uppercase">Contribuição</p></div>
                                                 </div>
-                                                {m.importance && (
-                                                  <p className="text-xs text-slate-400 font-medium leading-relaxed italic border-t border-slate-700/30 pt-3 mt-3">
-                                                    {m.importance}
-                                                  </p>
-                                                )}
                                               </div>
                                             ))}
                                           </div>
@@ -979,75 +500,13 @@ const App: React.FC = () => {
                 </table>
               </div>
             </section>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-8">
-              <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-3xl">
-                <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4 border-b border-slate-800 pb-2">Status de Volume Base</h4>
-                <div className="space-y-4">
-                  <div className="flex gap-3 items-start">
-                    <span className="text-xl">📉</span>
-                    <div>
-                      <span className="text-[10px] font-black text-blue-400 uppercase">MANUTENÇÃO (MEV)</span>
-                      <p className="text-[10px] text-slate-500 font-medium leading-tight">Mínimo Efetivo. Mantém a massa magra atual, mas gera pouco estímulo para novas adaptações.</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-3 items-start">
-                    <span className="text-xl">🚀</span>
-                    <div>
-                      <span className="text-[10px] font-black text-emerald-400 uppercase">PRODUTIVO (MAV)</span>
-                      <p className="text-[10px] text-slate-500 font-medium leading-tight">Volume Adaptativo Médio. Zona ideal para hipertrofia contínua com boa recuperação.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-3xl">
-                <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4 border-b border-slate-800 pb-2">Alta Intensidade de Volume</h4>
-                <div className="space-y-4">
-                  <div className="flex gap-3 items-start">
-                    <span className="text-xl">💎</span>
-                    <div>
-                      <span className="text-[10px] font-black text-indigo-400 uppercase">OTIMIZADO (MRV Progressivo)</span>
-                      <p className="text-[10px] text-slate-500 font-medium leading-tight">Perto do limite recuperável. Recomendado para fases de pico de volume em atletas avançados.</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-3 items-start">
-                    <span className="text-xl">⚡</span>
-                    <div>
-                      <span className="text-[10px] font-black text-orange-400 uppercase">LIMITE (Overreaching)</span>
-                      <p className="text-[10px] text-slate-500 font-medium leading-tight">Volume de choque. Sustentável por pouco tempo. Requer semanas de deload após o uso.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-3xl">
-                <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4 border-b border-slate-800 pb-2">Zonas de Alerta</h4>
-                <div className="space-y-4">
-                  <div className="flex gap-3 items-start">
-                    <span className="text-xl">🛑</span>
-                    <div>
-                      <span className="text-[10px] font-black text-red-500 uppercase">OVERTRAINING</span>
-                      <p className="text-[10px] text-slate-500 font-medium leading-tight">Volume além da capacidade de síntese e recuperação. Risco iminente de lesão ou estagnação.</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-3 items-start">
-                    <span className="text-xl">⚪</span>
-                    <div>
-                      <span className="text-[10px] font-black text-slate-500 uppercase">SEM TREINO</span>
-                      <p className="text-[10px] text-slate-500 font-medium leading-tight">Nenhuma série direta ou indireta registrada para este grupo muscular no plano atual.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
-        {/* --- DEMAIS ABAS MANTIDAS --- */}
+        {/* --- RESTORED TABS: STRENGTH, WORKOUTS, PERIODIZATION, HISTORY --- */}
         {activeTab === 'strength' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                 {/* ... conteúdo strength abreviado para caber na resposta, mas você deve manter o original ou copiar o bloco strength completo da resposta anterior se precisar ... */}
-                 {/* Vou colocar o bloco completo da Strength aqui para garantir que não quebre */}
                  <div className={`lg:col-span-3 bg-slate-900 border rounded-[2.5rem] p-10 md:p-16 shadow-2xl relative overflow-hidden transition-colors ${isDeloadActive ? 'border-emerald-500/30' : 'border-slate-800'}`}>
                      <div className={`absolute top-0 right-0 w-64 h-64 blur-[100px] rounded-full transition-colors ${isDeloadActive ? 'bg-emerald-600/5' : 'bg-indigo-600/5'}`}></div>
                      <div className="max-w-3xl relative z-10">
@@ -1080,14 +539,9 @@ const App: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                  <div className="lg:col-span-1 bg-slate-900 border border-slate-800 rounded-[2rem] p-8 shadow-xl space-y-6">
                     <h3 className="text-lg font-black uppercase tracking-tight text-white mb-4">Calculadora</h3>
-                    {/* ... Inputs de força ... */}
                     <div className="space-y-2">
                        <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Exercício Base</label>
-                       <select 
-                         value={strengthInputs.exercise}
-                         onChange={(e) => setStrengthInputs({...strengthInputs, exercise: e.target.value})}
-                         className={`w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white font-bold outline-none focus:ring-2 transition-all appearance-none ${isDeloadActive ? 'focus:ring-emerald-500' : 'focus:ring-indigo-500'}`}
-                       >
+                       <select value={strengthInputs.exercise} onChange={(e) => setStrengthInputs({...strengthInputs, exercise: e.target.value})} className={`w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white font-bold outline-none focus:ring-2 transition-all appearance-none ${isDeloadActive ? 'focus:ring-emerald-500' : 'focus:ring-indigo-500'}`}>
                            <option>Supino</option>
                            <option>Agachamento</option>
                            <option>Levantamento Terra</option>
@@ -1096,186 +550,229 @@ const App: React.FC = () => {
                     </div>
                     <div className="space-y-2">
                        <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Peso Corporal (kg)</label>
-                       <input 
-                         type="number" 
-                         value={strengthInputs.bw || ''}
-                         onFocus={(e) => e.target.select()}
-                         onChange={(e) => setStrengthInputs({...strengthInputs, bw: parseFloat(e.target.value) || 0})}
-                         className={`w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white font-bold outline-none focus:ring-2 transition-all ${isDeloadActive ? 'focus:ring-emerald-500' : 'focus:ring-indigo-500'}`}
-                         placeholder="Ex: 80"
-                       />
+                       <input type="number" value={strengthInputs.bw || ''} onFocus={(e) => e.target.select()} onChange={(e) => setStrengthInputs({...strengthInputs, bw: parseFloat(e.target.value) || 0})} className={`w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white font-bold outline-none focus:ring-2 transition-all ${isDeloadActive ? 'focus:ring-emerald-500' : 'focus:ring-indigo-500'}`} placeholder="Ex: 80" />
                     </div>
                     <div className="space-y-2">
                        <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Carga Utilizada (kg)</label>
-                       <input 
-                         type="number" 
-                         value={strengthInputs.load || ''}
-                         onFocus={(e) => e.target.select()}
-                         onChange={(e) => setStrengthInputs({...strengthInputs, load: parseFloat(e.target.value) || 0})}
-                         className={`w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white font-bold outline-none focus:ring-2 transition-all ${isDeloadActive ? 'focus:ring-emerald-500' : 'focus:ring-indigo-500'}`}
-                         placeholder="Carga total"
-                       />
+                       <input type="number" value={strengthInputs.load || ''} onFocus={(e) => e.target.select()} onChange={(e) => setStrengthInputs({...strengthInputs, load: parseFloat(e.target.value) || 0})} className={`w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white font-bold outline-none focus:ring-2 transition-all ${isDeloadActive ? 'focus:ring-emerald-500' : 'focus:ring-indigo-500'}`} placeholder="Carga total" />
                     </div>
                     <div className="space-y-2">
                        <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Repetições Máximas</label>
-                       <input 
-                         type="number" 
-                         value={strengthInputs.reps || ''}
-                         onFocus={(e) => e.target.select()}
-                         onChange={(e) => setStrengthInputs({...strengthInputs, reps: parseInt(e.target.value) || 0})}
-                         className={`w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white font-bold outline-none focus:ring-2 transition-all ${isDeloadActive ? 'focus:ring-emerald-500' : 'focus:ring-indigo-500'}`}
-                         placeholder="Ex: 8"
-                       />
+                       <input type="number" value={strengthInputs.reps || ''} onFocus={(e) => e.target.select()} onChange={(e) => setStrengthInputs({...strengthInputs, reps: parseInt(e.target.value) || 0})} className={`w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white font-bold outline-none focus:ring-2 transition-all ${isDeloadActive ? 'focus:ring-emerald-500' : 'focus:ring-indigo-500'}`} placeholder="Ex: 8" />
                     </div>
-                    <button 
-                      onClick={saveStrengthRecord}
-                      className={`w-full py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl transition-all ${isDeloadActive ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20' : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/20'} text-white`}
-                    >
-                      Salvar no Perfil de Força
-                    </button>
+                    <button onClick={saveStrengthRecord} className={`w-full py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl transition-all ${isDeloadActive ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20' : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/20'} text-white`}>Salvar no Perfil de Força</button>
                  </div>
-                 {/* ... Resto da aba Força ... */}
                  <div className="lg:col-span-2 space-y-8">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                        <div className={`bg-slate-900 border rounded-[2rem] p-10 flex flex-col items-center justify-center text-center shadow-xl group transition-all duration-500 ${isDeloadActive ? 'hover:border-emerald-500/50 border-emerald-900/40' : 'border-slate-800 hover:border-indigo-500/50'}`}>
                           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Estimativa de 1RM</span>
-                          <span className={`text-6xl font-black tracking-tighter mb-2 tabular-nums transition-colors ${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'}`}>
-                             {strengthResult.oneRM.toFixed(1)}<span className="text-2xl text-slate-600 ml-1">kg</span>
-                          </span>
+                          <span className={`text-6xl font-black tracking-tighter mb-2 tabular-nums transition-colors ${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'}`}>{strengthResult.oneRM.toFixed(1)}<span className="text-2xl text-slate-600 ml-1">kg</span></span>
                           <p className="text-xs text-slate-500 font-medium">Sua força teórica para 1 repetição.</p>
                        </div>
                        <div className={`bg-slate-900 border rounded-[2rem] p-10 flex flex-col items-center justify-center text-center shadow-xl group transition-all duration-500 ${isDeloadActive ? 'hover:border-emerald-500/50 border-emerald-900/40' : 'border-slate-800 hover:border-indigo-500/50'}`}>
                           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Nível de Força</span>
-                          <span className={`text-2xl font-black px-6 py-3 rounded-2xl mb-4 ${strengthResult.bg} ${strengthResult.color}`}>
-                             {strengthResult.level}
-                          </span>
-                          <div className="flex gap-1 items-center">
-                             <span className="text-xs font-bold text-slate-400">Ratio:</span>
-                             <span className="text-xs font-black text-white">{strengthResult.ratio.toFixed(2)}x BW</span>
-                          </div>
-                          <div className="mt-6 pt-4 border-t border-slate-800 w-full">
-                             <p className="text-[10px] text-slate-400 font-medium leading-relaxed italic">
-                               {strengthResult.prescription}
-                             </p>
-                          </div>
+                          <span className={`text-2xl font-black px-6 py-3 rounded-2xl mb-4 ${strengthResult.bg} ${strengthResult.color}`}>{strengthResult.level}</span>
+                          <div className="flex gap-1 items-center"><span className="text-xs font-bold text-slate-400">Ratio:</span><span className="text-xs font-black text-white">{strengthResult.ratio.toFixed(2)}x BW</span></div>
                        </div>
-                    </div>
-                    <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-8 shadow-xl">
-                       <h4 className="text-sm font-black text-white uppercase mb-6 tracking-widest">Seu Banco de Força</h4>
-                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                          {['Supino', 'Agachamento', 'Levantamento Terra', 'Remada Curvada'].map(ex => (
-                             <div key={ex} className={`bg-slate-950/50 p-4 rounded-2xl border text-center transition-colors ${isDeloadActive ? 'border-emerald-500/20' : 'border-slate-800'}`}>
-                                <span className="text-[8px] text-slate-500 font-black uppercase block mb-1">{ex}</span>
-                                <span className={`text-lg font-black transition-colors ${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'}`}>{strengthProfiles[ex]?.toFixed(1) || '--'} <span className="text-[9px] text-slate-600">kg</span></span>
-                             </div>
-                          ))}
-                       </div>
-                       <p className="text-[9px] text-slate-600 font-bold uppercase mt-6 italic">* Estas valores são usados pelo Smart Load para sugerir pesos em outros exercícios.</p>
                     </div>
                  </div>
               </div>
           </div>
         )}
-      </main>
 
-      {/* Modais */}
-      <ExerciseSelectorModal 
-        isOpen={showSelector} 
-        onClose={() => setShowSelector(false)} 
-        onSelect={(name) => {
-          if (targetDay) addToDay(targetDay, name);
-          else addToPlan(name);
-        }} 
-        catalog={PREDEFINED_EXERCISES} 
-        activePhase={activePhase}
-        currentDayExercises={targetDay ? workouts[targetDay] || [] : []}
-        planItems={weeklyPlan}
-        isAddingToPlan={!targetDay}
-      />
-      <PlanImporterModal
-        isOpen={showImporter}
-        onClose={() => setShowImporter(false)}
-        onSelect={(name, series) => targetDay && addToDay(targetDay, name, series)}
-        planItems={weeklyPlan}
-        dayName={targetDay || ''}
-      />
-      <ReturnToTrainingModal
-        isOpen={showReturnModal}
-        onClose={() => setShowReturnModal(false)}
-        workoutHistory={workoutHistory}
-        onApply={handleApplyReturn}
-        strengthProfiles={strengthProfiles}
-        currentWorkouts={workouts}
-      />
-      <AchievementModal 
-        isOpen={!!achievement} 
-        onClose={() => setAchievement(null)} 
-        data={achievement}
-      />
-      {showSettings && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
-           {/* Settings Modal Content */}
-           <div className="bg-slate-900 border border-slate-700 w-full max-w-xl rounded-[2.5rem] p-10 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto no-scrollbar">
-               <h3 className="text-2xl font-black mb-8 uppercase tracking-tighter flex justify-between items-center">
-                  <span>Perfil do Atleta</span>
-                  <button onClick={() => setShowSettings(false)} className="text-slate-500 hover:text-white transition-colors">
-                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                  </button>
-               </h3>
-               
-               <div className="space-y-10">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                   <div>
-                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Nome de Guerra</label>
-                     <input type="text" value={userName} onChange={(e) => setUserName(e.target.value)} className={`w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 outline-none transition-all text-white font-bold ${isDeloadActive ? 'focus:ring-2 focus:ring-emerald-500' : 'focus:ring-2 focus:ring-indigo-500'}`} />
-                   </div>
-                   <div>
-                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Peso Corporal Atual (kg)</label>
-                     <input type="number" value={strengthInputs.bw || ''} onFocus={(e) => e.target.select()} onChange={(e) => setStrengthInputs(prev => ({ ...prev, bw: parseFloat(e.target.value) || 0 }))} className={`w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 outline-none transition-all text-white font-bold ${isDeloadActive ? 'focus:ring-2 focus:ring-emerald-500' : 'focus:ring-2 focus:ring-indigo-500'}`} />
-                   </div>
-                 </div>
+        {activeTab === 'periodization' && (
+          <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+             <div className={`bg-slate-900 border rounded-[2.5rem] p-10 md:p-16 shadow-2xl relative overflow-hidden transition-colors ${isDeloadActive ? 'border-emerald-500/30' : 'border-slate-800'}`}>
+                <div className={`absolute top-0 right-0 w-64 h-64 blur-[100px] rounded-full transition-colors ${isDeloadActive ? 'bg-emerald-600/5' : 'bg-indigo-600/5'}`}></div>
+                <div className="max-w-3xl relative z-10">
+                   <span className={`${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'} font-black uppercase text-xs tracking-[0.4em] mb-4 block transition-colors`}>Manual de Guerra</span>
+                   <h2 className="text-4xl md:text-6xl font-black uppercase text-white mb-6 tracking-tighter leading-none">Periodização</h2>
+                   <p className="text-slate-400 text-lg md:text-xl font-medium leading-relaxed">Escolha sua estratégia de progressão.</p>
+                </div>
+             </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                 {macrocycles.map((macro, i) => (
+                    <div key={i} className="col-span-full space-y-8">
+                        <div className="flex items-center gap-4"><h3 className="text-2xl font-black uppercase tracking-tight text-white">{macro.name}</h3><div className="h-px bg-slate-800 flex-1"></div></div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                           {macro.phases.map(phase => (
+                              <div key={phase.id} className={`p-8 rounded-[2.5rem] border transition-all cursor-pointer group relative overflow-hidden flex flex-col justify-between ${activePhaseId === phase.id ? 'bg-indigo-600 border-indigo-400 shadow-2xl' : 'bg-slate-900 border-slate-800 hover:border-slate-700'}`} onClick={() => handlePhaseActivation(phase.id)}>
+                                 {activePhaseId === phase.id && <div className="absolute top-4 right-4 bg-white/20 text-white text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest animate-pulse">Ativo</div>}
+                                 <div><h4 className={`text-xl font-black ${activePhaseId === phase.id ? 'text-white' : 'text-slate-100'}`}>{phase.name}</h4><p className={`text-xs font-medium leading-relaxed mb-6 line-clamp-3 ${activePhaseId === phase.id ? 'text-white/80' : 'text-slate-500'}`}>{phase.description}</p></div>
+                              </div>
+                           ))}
+                        </div>
+                    </div>
+                 ))}
+             </div>
+          </div>
+        )}
 
-                 {/* NOVOS CAMPOS DE 1RM NO MODAL (Arredondados) */}
-                 <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-4">Seus Recordes (1RM)</label>
-                    <div className="grid grid-cols-2 gap-4">
-                       {['Supino', 'Agachamento', 'Levantamento Terra', 'Remada Curvada'].map(ex => (
-                          <div key={ex}>
-                             <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">{ex}</label>
-                             <input 
-                               type="number" 
-                               // AQUI ESTÁ A CORREÇÃO DO ARREDONDAMENTO:
-                               value={strengthProfiles[ex] ? Math.round(strengthProfiles[ex]) : ''} 
-                               onChange={(e) => setStrengthProfiles(prev => ({ ...prev, [ex]: parseFloat(e.target.value) || 0 }))}
-                               className="w-full bg-slate-800 border border-slate-700 rounded-2xl p-3 outline-none transition-all text-white font-bold focus:ring-2 focus:ring-indigo-500 text-sm"
-                             />
+        {activeTab === 'workouts' && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex justify-end mb-2">
+              <div className="flex items-center gap-3 bg-slate-800/40 px-4 py-2 rounded-2xl border border-slate-700/50">
+                <span className={`text-[9px] font-black uppercase tracking-widest ${isDeloadActive ? 'text-emerald-400' : 'text-slate-500'}`}>MODO DELOAD</span>
+                <button onClick={() => setIsDeloadActive(!isDeloadActive)} className={`w-10 h-5 rounded-full relative transition-all duration-300 ${isDeloadActive ? 'bg-emerald-600' : 'bg-slate-700'}`}><div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 ${isDeloadActive ? 'left-6' : 'left-1'}`}></div></button>
+              </div>
+            </div>
+            {isDeloadActive && <div className="bg-emerald-600/10 border border-emerald-500/30 p-8 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl"><h2 className="text-3xl font-black text-white uppercase">Deload Estratégico</h2></div>}
+            <div className={`p-6 md:p-8 rounded-[2.5rem] border space-y-8 shadow-xl transition-colors ${isDeloadActive ? 'bg-emerald-950/20 border-emerald-500/30' : 'bg-slate-900 border-slate-800'}`}>
+              <div className="flex flex-col xl:flex-row items-center justify-between gap-6">
+                <div className="max-w-xl"><h2 className="text-2xl font-black uppercase">Organizador de Sessão</h2></div>
+                <div className="flex flex-wrap justify-center gap-4">
+                  {!isDeloadActive && <button onClick={generateSmartSplit} className="bg-indigo-600/10 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/20 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Otimizar Split</button>}
+                  <button onClick={() => setIsSaveModalOpen(true)} className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg ${isDeloadActive ? 'bg-emerald-600' : 'bg-indigo-600'} text-white`}>{saveButtonText}</button>
+                </div>
+              </div>
+              <div className="pt-6 border-t border-slate-800"><div className="flex flex-wrap gap-2">{DAYS_OF_WEEK.map(day => (<button key={day} onClick={() => toggleDay(day)} className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-tighter transition-all border ${activeDays.includes(day) ? (isDeloadActive ? 'bg-emerald-600 border-emerald-400' : 'bg-indigo-600 border-indigo-400') + ' text-white shadow-lg' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>{day.split('-')[0]}</button>))}</div></div>
+            </div>
+            <div className={`grid grid-cols-1 md:grid-cols-2 ${activeDays.length <= 2 ? 'xl:grid-cols-2' : 'xl:grid-cols-3'} gap-8`}>
+              {DAYS_OF_WEEK.filter(day => activeDays.includes(day) || (workouts[day] && workouts[day].length > 0)).map(day => (
+                 <div key={day} onDragOver={(e) => handleDragOver(e, day)} onDragLeave={handleDragLeave} onDrop={(e) => handleDrop(e, day)} className={`rounded-[2.5rem] border p-10 shadow-lg group flex flex-col transition-all duration-300 ${day === todayName ? (isDeloadActive ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-indigo-500/50 bg-indigo-500/5') : 'bg-slate-900 border-slate-800'}`}>
+                    <div className="flex justify-between items-center mb-8"><h3 className={`text-2xl font-black uppercase tracking-tighter text-white`}>{day.split('-')[0]}</h3></div>
+                    <div className="space-y-2 flex-1 relative">
+                       {(workouts[day] || []).map((ex, index) => (
+                          <div key={ex.id} className="relative group/row">
+                             <WorkoutRow exercise={ex} day={day} onUpdate={updateWorkoutEx} onDelete={removeWorkoutEx} onSave={handleSaveExercise} activePhase={activePhase} currentWeek={currentWeek} workoutHistory={workoutHistory} strengthProfiles={strengthProfiles} onDragStart={() => handleDragStart(ex, day)} isDragging={draggedItem?.exercise.id === ex.id} onInitiateSuperSet={() => handleInitiateSuperSet(day, ex.id)} onBreakSuperSet={() => ex.superSetId && handleBreakSuperSet(day, ex.superSetId)} isSelectedForSuperSet={superSetSelection?.sourceId === ex.id} isDeloadActive={isDeloadActive} userLevel={globalStrength.fullLevel} />
                           </div>
                        ))}
                     </div>
+                    <div className="mt-10 flex gap-3"><button onClick={() => { setTargetDay(day); setShowSelector(true); }} className={`flex-1 py-5 rounded-2xl transition-all border uppercase tracking-[0.15em] text-[11px] font-black bg-slate-800/60 hover:bg-slate-800 text-slate-400 hover:text-white border-slate-700/50`}>+ CATÁLOGO</button></div>
+                 </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* --- ABA HISTÓRICO RESTAURADA --- */}
+        {activeTab === 'history' && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
+            <div className="flex justify-between items-center relative z-40 bg-slate-950/50 backdrop-blur-sm p-2 rounded-2xl">
+              <div>
+                <h2 className="text-3xl font-black uppercase tracking-tighter">Histórico de Performance</h2>
+                <p className="text-slate-500 text-sm font-bold uppercase tracking-widest mt-1">Seus registros de treinamento semanais</p>
+              </div>
+              {workoutHistory.length > 0 && (
+                <button onClick={clearHistory} className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-red-500/20 transition-all shadow-lg active:scale-95">Limpar Tudo</button>
+              )}
+            </div>
+            {workoutHistory.length === 0 ? (
+              <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-20 text-center space-y-4">
+                <span className="text-6xl opacity-10">🗓️</span>
+                <p className="text-slate-500 font-medium italic">Nenhum registro encontrado.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
+                {workoutHistory.map((log) => (
+                  <div key={log.id} className={`bg-slate-900 border rounded-[2rem] p-6 shadow-xl relative group overflow-hidden transition-all hover:border-indigo-500/50 ${isDeloadActive ? 'border-emerald-500/20 hover:border-emerald-500/50' : 'border-slate-800'}`}>
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex-1 min-w-0 pr-4">
+                        <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest mb-2 inline-block transition-colors ${isDeloadActive ? 'bg-emerald-400/10 text-emerald-400' : 'bg-indigo-400/10 text-indigo-400'}`}>S{log.week} • {log.phase || 'Geral'}</span>
+                        <h3 className="text-xl font-black text-white truncate">{log.name}</h3>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">{new Date(log.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                      </div>
+                      <button onClick={() => removeHistoryItem(log.id)} className="text-slate-400 hover:text-red-500 transition-all p-2 bg-slate-800/50 hover:bg-slate-800 rounded-xl active:scale-90"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 mt-6">
+                      <div className="bg-slate-950/50 p-4 rounded-2xl border border-slate-800/50"><span className="text-[8px] font-black text-slate-500 uppercase block mb-1">Volume Total</span><span className={`text-lg font-black transition-colors ${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'}`}>{log.totalSeries} <span className="text-[10px] text-slate-600">Séries</span></span></div>
+                      <div className="bg-slate-950/50 p-4 rounded-2xl border border-slate-800/50"><span className="text-lg font-black text-slate-300">{(Object.values(log.split) as WorkoutExercise[][]).filter(d => d.length > 0).length} <span className="text-[10px] text-slate-600">Dias</span></span></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+
+      {/* --- MODAIS DE SUPORTE --- */}
+      <ExerciseSelectorModal isOpen={showSelector} onClose={() => setShowSelector(false)} onSelect={(name) => { if (targetDay) addToDay(targetDay, name); else addToPlan(name); }} catalog={PREDEFINED_EXERCISES} activePhase={activePhase} currentDayExercises={targetDay ? workouts[targetDay] || [] : []} planItems={weeklyPlan} isAddingToPlan={!targetDay} />
+      <PlanImporterModal isOpen={showImporter} onClose={() => setShowImporter(false)} onSelect={(name, series) => targetDay && addToDay(targetDay, name, series)} planItems={weeklyPlan} dayName={targetDay || ''} />
+      <ReturnToTrainingModal isOpen={showReturnModal} onClose={() => setShowReturnModal(false)} workoutHistory={workoutHistory} onApply={handleApplyReturn} strengthProfiles={strengthProfiles} currentWorkouts={workouts} />
+      <AchievementModal isOpen={!!achievement} onClose={() => setAchievement(null)} data={achievement} />
+      
+      {/* --- MODAL DE CONFIGURAÇÕES (PERFIL DO ATLETA) REFEITO --- */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
+           <div className="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto no-scrollbar">
+               <div className="flex justify-between items-center mb-8">
+                  <h3 className="text-2xl font-black uppercase tracking-tighter text-white">Perfil do Atleta</h3>
+                  <button onClick={() => setShowSettings(false)} className="text-slate-500 hover:text-white transition-colors"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+               </div>
+               
+               <div className="space-y-8">
+                 {/* DADOS BÁSICOS */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <div>
+                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Nome de Guerra</label>
+                     <input type="text" value={userName} onChange={(e) => setUserName(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 outline-none transition-all text-white font-bold focus:ring-2 focus:ring-indigo-500" />
+                   </div>
+                   <div>
+                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Peso Corporal Atual (kg)</label>
+                     <input type="number" value={strengthInputs.bw || ''} onFocus={(e) => e.target.select()} onChange={(e) => setStrengthInputs(prev => ({ ...prev, bw: parseFloat(e.target.value) || 0 }))} className="w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 outline-none transition-all text-white font-bold focus:ring-2 focus:ring-indigo-500" />
+                   </div>
                  </div>
 
+                 {/* BACKUP */}
                  <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-4">Gestão de Dados</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-4">Gestão de Dados (Backup)</label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                        <button onClick={handleExportBackup} className="bg-slate-800 hover:bg-slate-700 border border-slate-700 p-4 rounded-2xl flex items-center justify-center gap-3 transition-all group">
-                          <span className="text-2xl group-hover:scale-110 transition-transform">📤</span>
-                          <span className="text-xs font-black uppercase text-slate-400 group-hover:text-white">Fazer Backup</span>
+                          <span className="text-lg">📥</span> <span className="text-xs font-black uppercase text-slate-400 group-hover:text-white">Exportar JSON</span>
                        </button>
                        <button onClick={() => fileInputRef.current?.click()} className="bg-slate-800 hover:bg-slate-700 border border-slate-700 p-4 rounded-2xl flex items-center justify-center gap-3 transition-all group">
-                          <span className="text-2xl group-hover:scale-110 transition-transform">📥</span>
-                          <span className="text-xs font-black uppercase text-slate-400 group-hover:text-white">Restaurar Backup</span>
+                          <span className="text-lg">📤</span> <span className="text-xs font-black uppercase text-slate-400 group-hover:text-white">Importar JSON</span>
                        </button>
-                       <input 
-                         type="file" 
-                         ref={fileInputRef} 
-                         style={{ display: 'none' }} 
-                         accept=".json" 
-                         onChange={handleImportBackup} 
-                       />
+                       <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".json" onChange={handleImportBackup} />
+                    </div>
+                    <p className="text-[10px] text-slate-600 mt-2 text-center italic">O backup salva todos os seus dados. Ao importar, o app será reiniciado.</p>
+                 </div>
+
+                 <div className="w-full h-px bg-slate-800"></div>
+
+                 {/* DASHBOARD DE FORÇA (NOVO DESIGN) */}
+                 <div>
+                    <div className="flex justify-between items-center mb-4">
+                       <h4 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2"><span className="text-lg">💪</span> Dashboard de Força</h4>
+                       <span className="bg-indigo-500/20 text-indigo-300 text-[10px] font-black px-3 py-1 rounded-full border border-indigo-500/30">Power Index: {globalStrength.score}</span>
+                    </div>
+
+                    <div className="space-y-3">
+                       {['Supino', 'Agachamento', 'Levantamento Terra', 'Remada Curvada'].map(ex => {
+                          const currentVal = strengthProfiles[ex] || 0;
+                          const ratio = strengthInputs.bw > 0 ? (currentVal / strengthInputs.bw).toFixed(2) : '0.00';
+                          return (
+                             <div key={ex} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex justify-between items-center group hover:border-slate-700 transition-all">
+                                <div>
+                                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">{ex}</label>
+                                   <div className="flex items-center gap-2">
+                                      <input 
+                                        type="number" 
+                                        value={currentVal ? Math.round(currentVal) : ''} 
+                                        onChange={(e) => setStrengthProfiles(prev => ({ ...prev, [ex]: parseFloat(e.target.value) || 0 }))}
+                                        className="bg-transparent text-xl font-black text-white w-20 outline-none border-b border-slate-800 focus:border-indigo-500 transition-colors"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-[10px] font-bold text-slate-600">KG (1RM)</span>
+                                   </div>
+                                </div>
+                                <div className="text-right">
+                                   {currentVal > 0 ? (
+                                      <>
+                                         <span className="bg-slate-900 text-slate-300 text-[9px] font-black px-2 py-0.5 rounded border border-slate-800">Nível {calculateStrengthLevel(ex, strengthInputs.bw, currentVal, 1).level}</span>
+                                         <p className="text-[9px] font-bold text-slate-500 mt-1">Ratio: {ratio}x BW</p>
+                                      </>
+                                   ) : (
+                                      <span className="text-[9px] font-bold text-slate-700 bg-slate-900 px-2 py-1 rounded">DADOS INCOMPLETOS</span>
+                                   )}
+                                </div>
+                             </div>
+                          );
+                       })}
                     </div>
                  </div>
                </div>
-               <button onClick={() => setShowSettings(false)} className="bg-indigo-600 text-white px-4 py-3 rounded-xl mt-8 w-full font-bold shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 transition-all">Salvar e Fechar</button>
            </div>
         </div>
       )}
