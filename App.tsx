@@ -815,10 +815,10 @@ const App: React.FC = () => {
               
               <div className="relative w-full overflow-x-auto scrollbar-thin">
                 <table className="w-full text-left border-collapse border-spacing-0">
-                  <thead className="bg-slate-900 text-[10px] uppercase font-black text-slate-500 sticky top-[60px] z-40">
+                  <thead className="bg-slate-900 text-[10px] uppercase font-black text-slate-500 sticky top-[76px] z-40">
                     <tr>
-                      <th className="p-4 w-60 bg-slate-950 sticky left-0 z-45 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50">Exercício</th>
-                      <th className="p-4 w-24 text-center sticky left-60 z-40 bg-slate-950 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50">Séries</th>
+                      <th className="p-4 w-60 bg-slate-950 sticky left-0 z-50 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50">Exercício</th>
+                      <th className="p-4 w-24 text-center sticky left-60 z-50 bg-slate-950 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50">Séries</th>
                       {visibleMuscles.map(m => {
                         const isRelevantToFocusedEx = focusedPlanExerciseId ? (focusedPlanExerciseData?.muscles.some(mu => mu.name === m) ?? false) : false;
                         const isPrimary = focusedPlanExerciseId ? (focusedPlanExerciseData?.muscles.some(mu => mu.name === m && mu.type === 'principal') ?? false) : false;
@@ -968,7 +968,7 @@ const App: React.FC = () => {
                           </td>
                         );
                       })}
-                      <td className="p-4 sticky right-0 bg-slate-900"></td>
+                      <td className="p-4 sticky right-0 bg-slate-950"></td>
                     </tr>
                   </tfoot>
                 </table>
