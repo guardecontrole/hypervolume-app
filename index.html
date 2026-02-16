@@ -11,7 +11,8 @@
             font-family: 'Inter', sans-serif;
             background-color: #0f172a;
         }
-        /* Custom Scrollbar */
+        
+        /* Custom Scrollbar (Barra de rolagem bonita) */
         ::-webkit-scrollbar {
             width: 8px;
             height: 8px;
@@ -26,7 +27,19 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #64748b;
         }
+
+        /* --- CORREÇÃO DAS SETINHAS --- */
+        /* Remove as setas de incremento/decremento dos inputs numéricos */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
     </style>
+    
     <script type="importmap">
     {
       "imports": {
