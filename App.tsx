@@ -815,10 +815,10 @@ const App: React.FC = () => {
               
               <div className="relative w-full overflow-x-auto scrollbar-thin">
                 <table className="w-full text-left border-collapse border-spacing-0">
-                  <thead className="bg-slate-900 text-[10px] uppercase font-black text-slate-500 sticky top-[75px] z-40">
+                  <thead className="bg-slate-900 text-[10px] uppercase font-black text-slate-500 sticky top-[60px] z-40">
                     <tr>
-                      <th className="p-4 w-60 bg-slate-950 sticky left-0 z-50 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50">Exercício</th>
-                      <th className="p-4 w-24 text-center sticky left-60 z-50 bg-slate-950 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50">Séries</th>
+                      <th className="p-4 w-60 bg-slate-950 sticky left-0 z-45 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50">Exercício</th>
+                      <th className="p-4 w-24 text-center sticky left-60 z-40 bg-slate-950 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50">Séries</th>
                       {visibleMuscles.map(m => {
                         const isRelevantToFocusedEx = focusedPlanExerciseId ? (focusedPlanExerciseData?.muscles.some(mu => mu.name === m) ?? false) : false;
                         const isPrimary = focusedPlanExerciseId ? (focusedPlanExerciseData?.muscles.some(mu => mu.name === m && mu.type === 'principal') ?? false) : false;
@@ -866,7 +866,7 @@ const App: React.FC = () => {
                               return (
                                 <React.Fragment key={item.id}>
                                   <tr className={`group transition-all hover:bg-slate-800/30 ${isExpanded ? 'bg-slate-800/40' : 'bg-slate-900'} ${focusedPlanExerciseId && !isRowFocused ? 'opacity-30 grayscale' : ''}`} onClick={() => toggleExpandExercise(item.id)}>
-                                    <td className={`p-3 pl-6 w-60 font-bold text-sm sticky left-0 z-30 flex items-center gap-2 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors bg-slate-950 group-hover:bg-slate-900`}>
+                                    <td className={`p-3 pl-8 w-60 font-bold text-sm sticky left-0 z-30 flex items-center gap-2 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors bg-slate-950 group-hover:bg-slate-900`}>
                                       <div className={`w-1 h-4 rounded-full flex-shrink-0 transition-colors ${isRowFocused ? (isDeloadActive ? 'bg-emerald-400' : 'bg-indigo-400') : (isDeloadActive ? 'bg-emerald-500/20' : 'bg-indigo-500/20')}`}></div>
                                       <span className="truncate flex-1 min-w-0 cursor-pointer">{item.name}</span>
                                     </td>
@@ -954,13 +954,13 @@ const App: React.FC = () => {
                       ))}
                       <td className="p-4 sticky right-0 bg-slate-900"></td>
                     </tr>
-                    <tr className="border-t border-slate-800/50">
+                    <tr className="border-t border-slate-800/50 bg-slate-950">
                       <td className="p-4 w-60 sticky left-0 bg-slate-950 text-[10px] text-slate-500 uppercase font-black shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 z-40">SAÚDE DO PLANO</td>
                       <td className="p-4 w-24 sticky left-60 bg-slate-950 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50"></td>
                       {visibleMuscles.map(m => {
                         const { label, color, bg, icon } = getVolumeLevelData(m, muscleTotals[m], globalStrength.score);
                         return (
-                          <td key={m} className="p-3 text-center uppercase">
+                          <td key={m} className="p-3 text-center uppercase bg-slate-950">
                              <div className={`flex flex-col items-center gap-1 ${bg} ${color} p-2 rounded-xl border border-white/5 shadow-inner transition-all duration-300`}>
                                 <span className="text-xs leading-none">{icon}</span>
                                 <span className="text-[8px] font-black tracking-tighter whitespace-nowrap">{label}</span>
