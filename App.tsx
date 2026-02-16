@@ -817,8 +817,8 @@ const App: React.FC = () => {
                 <table className="w-full text-left border-collapse border-spacing-0">
                   <thead className="bg-slate-900 text-[10px] uppercase font-black text-slate-500 sticky top-0 z-40">
                     <tr>
-                      <th className="p-4 w-52 bg-slate-950 sticky left-0 z-50 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50">Exercício</th>
-                      <th className="p-4 w-20 text-center sticky left-52 z-50 bg-slate-950 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50">Séries</th>
+                      <th className="p-4 w-64 bg-slate-950 sticky left-0 z-50 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50">Exercício</th>
+                      <th className="p-4 w-20 text-center sticky left-64 z-50 bg-slate-950 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50">Séries</th>
                       {visibleMuscles.map(m => {
                         const isRelevantToFocusedEx = focusedPlanExerciseId ? (focusedPlanExerciseData?.muscles.some(mu => mu.name === m) ?? false) : false;
                         const isPrimary = focusedPlanExerciseId ? (focusedPlanExerciseData?.muscles.some(mu => mu.name === m && mu.type === 'principal') ?? false) : false;
@@ -856,7 +856,7 @@ const App: React.FC = () => {
                                   </span>
                                 )}
                               </td>
-                              <td className={`p-4 text-center font-black text-xs sticky left-52 bg-slate-950 group-hover:bg-slate-900 z-30 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors ${isDeloadActive ? 'text-emerald-400/60' : 'text-indigo-400/60'}`}>
+                              <td className={`p-4 text-center font-black text-xs sticky left-64 bg-slate-950 group-hover:bg-slate-900 z-30 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors ${isDeloadActive ? 'text-emerald-400/60' : 'text-indigo-400/60'}`}>
                                 {!isCollapsed && `${categorySeries}S`}
                               </td>
                               <td colSpan={visibleMuscles.length + 1} className="p-4 text-[10px] text-slate-600 font-bold uppercase tracking-widest italic bg-slate-950 group-hover:bg-slate-900 transition-colors">
@@ -871,11 +871,11 @@ const App: React.FC = () => {
                               return (
                                 <React.Fragment key={item.id}>
                                   <tr className={`group transition-all hover:bg-slate-800/30 ${isExpanded ? 'bg-slate-800/40' : 'bg-slate-900'} ${focusedPlanExerciseId && !isRowFocused ? 'opacity-30 grayscale' : ''}`} onClick={() => toggleExpandExercise(item.id)}>
-                                    <td className={`p-3 pl-8 w-52 font-bold text-sm sticky left-0 z-30 flex items-center gap-2 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors bg-slate-950 group-hover:bg-slate-900`}>
+                                    <td className={`p-3 pl-8 w-64 font-bold text-sm sticky left-0 z-30 flex items-center gap-2 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors bg-slate-950 group-hover:bg-slate-900`}>
                                       <div className={`w-1 h-4 rounded-full flex-shrink-0 transition-colors ${isRowFocused ? (isDeloadActive ? 'bg-emerald-400' : 'bg-indigo-400') : (isDeloadActive ? 'bg-emerald-500/20' : 'bg-indigo-500/20')}`}></div>
                                       <span className="truncate flex-1 min-w-0 cursor-pointer">{item.name}</span>
                                     </td>
-                                    <td className={`p-2 w-20 sticky left-52 z-30 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors bg-slate-950 group-hover:bg-slate-900`} onClick={(e) => e.stopPropagation()}>
+                                    <td className={`p-2 w-20 sticky left-64 z-30 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors bg-slate-950 group-hover:bg-slate-900`} onClick={(e) => e.stopPropagation()}>
                                       <input 
                                         type="number" 
                                         value={item.series || ''} 
@@ -952,16 +952,16 @@ const App: React.FC = () => {
                   </tbody>
                   <tfoot className={`bg-slate-900 font-black border-t-2 sticky bottom-0 z-40 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] transition-colors ${isDeloadActive ? 'border-emerald-500' : 'border-indigo-500'}`}>
                     <tr>
-                      <td className="p-4 w-52 sticky left-0 bg-slate-950 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 text-xs">TOTAIS</td>
-                      <td className={`p-4 w-20 text-center text-lg sticky left-52 bg-slate-950 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors ${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'}`}>{weeklyPlan.reduce((a, b) => a + (b.series || 0), 0)}</td>
+                      <td className="p-4 w-64 sticky left-0 bg-slate-950 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 text-xs">TOTAIS</td>
+                      <td className={`p-4 w-20 text-center text-lg sticky left-64 bg-slate-950 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors ${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'}`}>{weeklyPlan.reduce((a, b) => a + (b.series || 0), 0)}</td>
                       {visibleMuscles.map(m => (
                         <td key={m} className={`p-4 text-center tabular-nums transition-colors ${isDeloadActive ? 'text-emerald-300' : 'text-indigo-300'}`}>{muscleTotals[m].toFixed(1)}</td>
                       ))}
                       <td className="p-4 sticky right-0 bg-slate-900"></td>
                     </tr>
                     <tr className="border-t border-slate-800/50 bg-slate-950">
-                      <td className="p-4 w-52 sticky left-0 bg-slate-950 text-[10px] text-slate-500 uppercase font-black shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 z-40">SAÚDE DO PLANO</td>
-                      <td className="p-4 w-20 sticky left-52 bg-slate-950 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50"></td>
+                      <td className="p-4 w-64 sticky left-0 bg-slate-950 text-[10px] text-slate-500 uppercase font-black shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 z-40">SAÚDE DO PLANO</td>
+                      <td className="p-4 w-20 sticky left-64 bg-slate-950 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50"></td>
                       {visibleMuscles.map(m => {
                         const { label, color, bg, icon } = getVolumeLevelData(m, muscleTotals[m], globalStrength.score);
                         return (
