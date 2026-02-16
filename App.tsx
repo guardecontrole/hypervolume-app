@@ -815,7 +815,7 @@ const App: React.FC = () => {
               
               <div className="relative w-full overflow-x-auto scrollbar-thin">
                 <table className="w-full text-left border-collapse border-spacing-0">
-                  <thead className="bg-slate-900 text-[10px] uppercase font-black text-slate-500 sticky top-[76px] z-40">
+                  <thead className="bg-slate-900 text-[10px] uppercase font-black text-slate-500 sticky top-[0px] z-40">
                     <tr>
                       <th className="p-4 w-60 bg-slate-950 sticky left-0 z-50 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50">Exercício</th>
                       <th className="p-4 w-24 text-center sticky left-60 z-50 bg-slate-950 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50">Séries</th>
