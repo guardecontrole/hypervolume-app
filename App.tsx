@@ -606,7 +606,7 @@ const App: React.FC = () => {
 
   return (
     <div className={`min-h-screen pb-24 md:pb-20 transition-colors duration-500 ${isDeloadActive ? 'bg-slate-950' : 'bg-slate-950'}`}>
-      <header className={`backdrop-blur-md border-b sticky top-0 z-40 transition-colors duration-300 ${isDeloadActive ? 'bg-emerald-950/40 border-emerald-900/50' : 'bg-slate-900/80 border-slate-800'}`}>
+      <header className={`backdrop-blur-md border-b sticky top-0 z-50 transition-colors duration-300 ${isDeloadActive ? 'bg-emerald-950/40 border-emerald-900/50' : 'bg-slate-900/80 border-slate-800'}`}>
         <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col lg:flex-row justify-between items-center gap-3">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
@@ -815,7 +815,7 @@ const App: React.FC = () => {
               
               <div className="relative w-full overflow-x-auto scrollbar-thin">
                 <table className="w-full text-left border-collapse border-spacing-0">
-                  <thead className="bg-slate-900 text-[10px] uppercase font-black text-slate-500 sticky top-0 z-50">
+                  <thead className="bg-slate-900 text-[10px] uppercase font-black text-slate-500 sticky top-[68px] z-40">
                     <tr>
                       <th className="p-4 w-60 bg-slate-950 sticky left-0 z-50 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50">Exercício</th>
                       <th className="p-4 w-24 text-center sticky left-60 z-50 bg-slate-950 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50">Séries</th>
@@ -847,11 +847,11 @@ const App: React.FC = () => {
                               className="group bg-slate-950 cursor-pointer hover:bg-slate-900 transition-colors border-y border-slate-800/50"
                               onClick={() => toggleCategory(category)}
                             >
-                              <td className={`p-4 sticky left-0 bg-slate-950 group-hover:bg-slate-900 z-40 font-black text-xs flex items-center gap-3 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors ${isDeloadActive ? 'text-emerald-300' : 'text-indigo-300'}`}>
+                              <td className={`p-4 sticky left-0 bg-slate-950 group-hover:bg-slate-900 z-30 font-black text-xs flex items-center gap-3 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors ${isDeloadActive ? 'text-emerald-300' : 'text-indigo-300'}`}>
                                 <svg className={`w-4 h-4 transition-transform ${isCollapsed ? '' : 'rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7"/></svg>
                                 <span>{category.toUpperCase()}</span>
                               </td>
-                              <td className={`p-4 text-center font-black text-xs sticky left-60 bg-slate-950 group-hover:bg-slate-900 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors ${isDeloadActive ? 'text-emerald-400/60' : 'text-indigo-400/60'}`}>
+                              <td className={`p-4 text-center font-black text-xs sticky left-60 bg-slate-950 group-hover:bg-slate-900 z-30 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors ${isDeloadActive ? 'text-emerald-400/60' : 'text-indigo-400/60'}`}>
                                 {categorySeries}S
                               </td>
                               <td colSpan={visibleMuscles.length + 1} className="p-4 text-[10px] text-slate-600 font-bold uppercase tracking-widest italic bg-slate-950 group-hover:bg-slate-900 transition-colors">
@@ -866,11 +866,11 @@ const App: React.FC = () => {
                               return (
                                 <React.Fragment key={item.id}>
                                   <tr className={`group transition-all hover:bg-slate-800/30 ${isExpanded ? 'bg-slate-800/40' : 'bg-slate-900'} ${focusedPlanExerciseId && !isRowFocused ? 'opacity-30 grayscale' : ''}`} onClick={() => toggleExpandExercise(item.id)}>
-                                    <td className={`p-3 pl-6 w-60 font-bold text-sm sticky left-0 z-40 flex items-center gap-2 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors bg-slate-950 group-hover:bg-slate-900`}>
+                                    <td className={`p-3 pl-6 w-60 font-bold text-sm sticky left-0 z-30 flex items-center gap-2 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors bg-slate-950 group-hover:bg-slate-900`}>
                                       <div className={`w-1 h-4 rounded-full flex-shrink-0 transition-colors ${isRowFocused ? (isDeloadActive ? 'bg-emerald-400' : 'bg-indigo-400') : (isDeloadActive ? 'bg-emerald-500/20' : 'bg-indigo-500/20')}`}></div>
                                       <span className="truncate flex-1 min-w-0 cursor-pointer">{item.name}</span>
                                     </td>
-                                    <td className={`p-2 w-24 sticky left-60 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors bg-slate-950 group-hover:bg-slate-900`} onClick={(e) => e.stopPropagation()}>
+                                    <td className={`p-2 w-24 sticky left-60 z-30 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors bg-slate-950 group-hover:bg-slate-900`} onClick={(e) => e.stopPropagation()}>
                                       <input 
                                         type="number" 
                                         value={item.series || ''} 
@@ -945,13 +945,29 @@ const App: React.FC = () => {
                       })
                     )}
                   </tbody>
-                  <tfoot className={`bg-slate-900 font-black border-t-2 sticky bottom-0 z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] transition-colors ${isDeloadActive ? 'border-emerald-500' : 'border-indigo-500'}`}>
+                  <tfoot className={`bg-slate-900 font-black border-t-2 sticky bottom-0 z-40 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] transition-colors ${isDeloadActive ? 'border-emerald-500' : 'border-indigo-500'}`}>
                     <tr>
-                      <td className="p-4 w-60 sticky left-0 bg-slate-950 z-50 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 text-xs">TOTAIS</td>
-                      <td className={`p-4 w-24 text-center text-lg sticky left-60 bg-slate-950 z-50 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors ${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'}`}>{weeklyPlan.reduce((a, b) => a + (b.series || 0), 0)}</td>
+                      <td className="p-4 w-60 sticky left-0 bg-slate-950 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 text-xs">TOTAIS</td>
+                      <td className={`p-4 w-24 text-center text-lg sticky left-60 bg-slate-950 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors ${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'}`}>{weeklyPlan.reduce((a, b) => a + (b.series || 0), 0)}</td>
                       {visibleMuscles.map(m => (
                         <td key={m} className={`p-4 text-center tabular-nums transition-colors ${isDeloadActive ? 'text-emerald-300' : 'text-indigo-300'}`}>{muscleTotals[m].toFixed(1)}</td>
                       ))}
+                      <td className="p-4 sticky right-0 bg-slate-900"></td>
+                    </tr>
+                    <tr className="border-t border-slate-800/50">
+                      <td className="p-4 w-60 sticky left-0 bg-slate-950 text-[10px] text-slate-500 uppercase font-black shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 z-40">SAÚDE DO PLANO</td>
+                      <td className="p-4 w-24 sticky left-60 bg-slate-950 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50"></td>
+                      {visibleMuscles.map(m => {
+                        const { label, color, bg, icon } = getVolumeLevelData(m, muscleTotals[m], globalStrength.score);
+                        return (
+                          <td key={m} className="p-3 text-center uppercase">
+                             <div className={`flex flex-col items-center gap-1 ${bg} ${color} p-2 rounded-xl border border-white/5 shadow-inner transition-all duration-300`}>
+                                <span className="text-xs leading-none">{icon}</span>
+                                <span className="text-[8px] font-black tracking-tighter whitespace-nowrap">{label}</span>
+                             </div>
+                          </td>
+                        );
+                      })}
                       <td className="p-4 sticky right-0 bg-slate-900"></td>
                     </tr>
                   </tfoot>
@@ -1661,6 +1677,7 @@ const App: React.FC = () => {
         )}
       </main>
 
+      {/* Modais */}
       <ExerciseSelectorModal 
         isOpen={showSelector} 
         onClose={() => setShowSelector(false)} 
@@ -1696,14 +1713,9 @@ const App: React.FC = () => {
       />
       {showSettings && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
-           <div className="bg-slate-900 border border-slate-700 w-full max-w-xl rounded-[2.5rem] p-10 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto no-scrollbar">
-               <h3 className="text-2xl font-black mb-8 uppercase tracking-tighter flex justify-between items-center">
-                  <span>Perfil do Atleta</span>
-                  <button onClick={() => setShowSettings(false)} className="text-slate-500 hover:text-white transition-colors">
-                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                  </button>
-               </h3>
-               
+           {/* Settings Modal Content */}
+           <div className="bg-slate-900 border border-slate-700 w-full max-w-xl rounded-[2.5rem] p-10">
+               <h3 className="text-white mb-4">Configurações</h3>
                <div className="space-y-10">
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                    <div>
@@ -1737,6 +1749,7 @@ const App: React.FC = () => {
                     </div>
                  </div>
                </div>
+               <button onClick={() => setShowSettings(false)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg mt-6 w-full font-bold">Salvar e Fechar</button>
            </div>
         </div>
       )}
