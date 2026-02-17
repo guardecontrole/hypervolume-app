@@ -40,13 +40,6 @@ export const StrategyTab: React.FC<Props> = ({
          <div className="border border-slate-700 p-10 rounded-[2.5rem] bg-slate-900/50">
              <h3 className="text-2xl font-black text-white mb-6">Customização Manual</h3>
              <textarea value={manualMethodology} onChange={e => setManualMethodology(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 text-white" placeholder="Descreva sua metodologia..." />
-             <div className="mt-4 flex gap-4">
-                 <div>
-                    <label className="text-xs text-slate-500 font-bold block mb-1">RIR Alvo</label>
-                    <input type="number" value={manualRir} onChange={e => setManualRir(Number(e.target.value))} className="bg-slate-800 text-white p-2 rounded-lg w-20" />
-                 </div>
-                 {/* Adicionar select de progressão aqui se desejar */}
-             </div>
          </div>
        )}
 
