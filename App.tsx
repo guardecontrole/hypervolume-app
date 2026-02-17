@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { PlanItem, WorkoutSplit, WorkoutExercise, WorkoutLog, WorkoutSet } from './types';
-import { PREDEFINED_EXERCISES, DAYS_OF_WEEK, PERIODIZATION_PHASES, CATEGORY_ORDER } from './constants';
-import { calculateStrengthLevel, calculateGlobalStrengthLevel, classifyExercise, sortExercisesSmartly, calculate1RM, getExerciseCategory, analyzeTrends, checkRecuperationRisk } from './utils/helpers';
+import { PREDEFINED_EXERCISES, DAYS_OF_WEEK, PERIODIZATION_PHASES, CATEGORY_ORDER, MUSCLE_SORT_ORDER, SECONDARY_MUSCLES, MUSCULOS_GRANDES } from './constants';
+import { calculateStrengthLevel, calculateGlobalStrengthLevel, classifyExercise, sortExercisesSmartly, calculate1RM, getExerciseCategory, analyzeTrends, checkRecuperationRisk, getShortMuscleName, calculateDetailedMuscleMetrics, calculateMuscleVolumeForLog } from './utils/helpers';
 
 // COMPONENTS
 import { ExerciseSelectorModal } from './components/ExerciseSelectorModal';
@@ -102,25 +102,59 @@ const App: React.FC = () => {
     return stages.map(stage => ({ name: stage, phases: PERIODIZATION_PHASES.filter(p => p.stage === stage) }));
   }, []);
 
+  // --- FUNÇÕES RESTAURADAS (ISSO QUE FALTAVA) ---
   const toggleDay = (day: string) => setActiveDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
   const addToPlan = (name: string) => setWeeklyPlan(prev => prev.find(p => p.name === name) ? prev : [...prev, { id: Date.now(), name, series: 0 }]);
+  
+  const addToDay = (day: string, name: string, series?: number) => {
+    const sCount = series || 3;
+    const initialSets: WorkoutSet[] = Array.from({ length: sCount }).map(() => ({ id: Math.random().toString(36).substr(2, 9), reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null }));
+    setWorkouts(prev => ({ ...prev, [day]: [...(prev[day] || []), { id: Date.now() + Math.random(), name, series: sCount, sets: initialSets, reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null }] }));
+  };
+
   const updateWorkoutEx = (day: string, id: number, data: Partial<WorkoutExercise>) => setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => ex.id === id ? { ...ex, ...data } : ex)}));
   const removeWorkoutEx = (day: string, id: number) => setWorkouts(prev => ({ ...prev, [day]: prev[day].filter(ex => ex.id !== id)}));
   
   const monitorPRs = (newLog: WorkoutLog) => {
-    /* ...lógica de PRs mantida simplificada aqui, mas idealmente dentro do hook ou helper... */
-    /* Para manter a integridade, vamos assumir que o setAchievement e setStrengthProfiles funcionam */
+    const exercisesToCheck = ['Supino', 'Agachamento', 'Levantamento Terra', 'Remada Curvada'];
+    const bw = strengthInputs.bw || 80;
+    let updatedProfiles = { ...strengthProfiles };
+    let foundNewPR = false;
+    let achievementData = null;
+    const oldGlobal = calculateGlobalStrengthLevel(updatedProfiles, bw);
+
+    Object.values(newLog.split).flat().forEach((ex: WorkoutExercise) => {
+      const baseExName = exercisesToCheck.find(base => ex.name.includes(base));
+      if (baseExName) {
+        const currentPR = updatedProfiles[baseExName] || 0;
+        let best1RMInSesssion = 0;
+        if (ex.sets && ex.sets.length > 0) { ex.sets.forEach(set => { if (set.load && set.reps > 0) { const calc = calculate1RM(set.load, set.reps); if (calc > best1RMInSesssion) best1RMInSesssion = calc; } }); } else if (ex.load && ex.reps > 0) { best1RMInSesssion = calculate1RM(ex.load, ex.reps); }
+        if (best1RMInSesssion > currentPR + 0.1) { updatedProfiles[baseExName] = best1RMInSesssion; foundNewPR = true; achievementData = { exercise: baseExName, old1RM: currentPR, new1RM: best1RMInSesssion, oldScore: oldGlobal.score, newScore: calculateGlobalStrengthLevel(updatedProfiles, bw).score, oldLevel: oldGlobal.fullLevel, newLevel: calculateGlobalStrengthLevel(updatedProfiles, bw).fullLevel, changedLevel: oldGlobal.name !== calculateGlobalStrengthLevel(updatedProfiles, bw).name }; }
+      }
+    });
+    if (foundNewPR) { setStrengthProfiles(updatedProfiles); setAchievement(achievementData); }
   };
 
   const handleSaveWeek = () => {
      const allExs = (Object.values(workouts) as WorkoutExercise[][]).reduce((acc, v) => acc.concat(v), []);
      const totalSeries = allExs.reduce((acc, ex) => acc + (ex.sets?.length || ex.series || 0), 0);
      const newLog: WorkoutLog = { id: Date.now(), date: new Date().toISOString(), name: logName || `S${currentWeek}`, totalSeries, split: JSON.parse(JSON.stringify(workouts)), phase: activePhase?.name, week: currentWeek };
+     monitorPRs(newLog);
      setWorkoutHistory(prev => [newLog, ...prev]);
      setIsSaveModalOpen(false); setLogName('');
+     setCurrentWeek(prev => prev < 4 ? prev + 1 : 1);
+     setSaveButtonText('✅ Salvo!');
+     setTimeout(() => setSaveButtonText('💾 Salvar Semana'), 2000);
   };
 
-  const handleApplyReturn = (newSplit: WorkoutSplit, phaseId: string) => { setWorkouts(newSplit); setActivePhaseId(phaseId); setCurrentWeek(1); setActiveTab('workouts'); };
+  // ESTA ERA A FUNÇÃO QUE FALTAVA
+  const handleApplyReturn = (newSplit: WorkoutSplit, phaseId: string) => { 
+      setWorkouts(newSplit); 
+      setActivePhaseId(phaseId); 
+      setCurrentWeek(1); 
+      setActiveTab('workouts'); 
+  };
+
   const removeHistoryItem = (id: number) => { if (window.confirm("Excluir treino?")) setWorkoutHistory(prev => prev.filter(item => item.id !== id)); };
   const clearHistory = () => { if (window.confirm("Apagar tudo?")) setWorkoutHistory([]); };
   
@@ -136,10 +170,46 @@ const App: React.FC = () => {
 
   const handleInitiateSuperSet = (day: string, id: number) => !isDeloadActive && setSuperSetSelection({ day, sourceId: id });
   const handleBreakSuperSet = (day: string, superSetId: string) => setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => ex.superSetId === superSetId ? { ...ex, superSetId: undefined } : ex) }));
-  const handleExerciseClick = (day: string, id: number) => { if (superSetSelection && !isDeloadActive) { const newId = Math.random().toString(36); setWorkouts(prev => ({...prev, [day]: prev[day].map(ex => (ex.id === superSetSelection.sourceId || ex.id === id) ? {...ex, superSetId: newId} : ex)})); setSuperSetSelection(null); } };
+  const handleExerciseClick = (day: string, id: number) => { 
+      if (superSetSelection && !isDeloadActive) { 
+          if(superSetSelection.day !== day) { alert('Mesmo dia apenas'); setSuperSetSelection(null); return; }
+          const newId = Math.random().toString(36); 
+          setWorkouts(prev => ({...prev, [day]: prev[day].map(ex => (ex.id === superSetSelection.sourceId || ex.id === id) ? {...ex, superSetId: newId} : ex)})); 
+          setSuperSetSelection(null); 
+      } 
+  };
   const handleQuickLink = (day: string, id1: number, id2: number) => { const newId = Math.random().toString(36); setWorkouts(prev => ({...prev, [day]: prev[day].map(ex => (ex.id === id1 || ex.id === id2) ? {...ex, superSetId: newId} : ex)})); };
-  const generateSmartSplit = () => { /* ...lógica mantida... */ };
-  const handleSaveExercise = (day: string, exercise: WorkoutExercise) => { /* ...lógica mantida... */ };
+  
+  const generateSmartSplit = () => {
+    const split: WorkoutSplit = {};
+    const effectiveDays = activeDays.length > 0 ? activeDays : DAYS_OF_WEEK.slice(0, 4);
+    effectiveDays.forEach(d => split[d] = []);
+    const categories: Record<string, PlanItem[]> = { 'Push': [], 'Pull': [], 'Legs': [], 'Core/Accessory': [] };
+    weeklyPlan.filter(p => p.series > 0).forEach(item => { const cat = classifyExercise(item.name, PREDEFINED_EXERCISES); categories[cat].push(item); });
+    effectiveDays.forEach((day, idx) => {
+        const rotationIdx = idx % 3;
+        const targetCat = rotationIdx === 0 ? 'Push' : rotationIdx === 1 ? 'Pull' : 'Legs';
+        categories[targetCat].forEach(item => {
+            const freq = Math.max(1, effectiveDays.length / 3);
+            const seriesPerDay = Math.ceil(item.series / freq);
+            const currentTotal = (Object.values(split) as WorkoutExercise[][]).flat().filter(ex => ex.name === item.name).reduce((a,b) => a + (b.sets?.length || b.series), 0);
+            if (currentTotal < item.series) {
+                const toAdd = Math.min(seriesPerDay, item.series - currentTotal);
+                const initialSets: WorkoutSet[] = Array.from({ length: toAdd }).map(() => ({ id: Math.random().toString(36).substr(2, 9), reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null }));
+                split[day].push({ id: Date.now() + Math.random(), name: item.name, series: toAdd, sets: initialSets, reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null });
+            }
+        });
+        split[day] = sortExercisesSmartly(split[day]);
+    });
+    setWorkouts(split);
+    setActiveTab('workouts');
+  };
+
+  const handleSaveExercise = (day: string, exercise: WorkoutExercise) => { 
+      const newLog: WorkoutLog = { id: Date.now(), date: new Date().toISOString(), name: `Log: ${exercise.name}`, totalSeries: exercise.sets?.length || exercise.series || 0, split: { [day]: [JSON.parse(JSON.stringify(exercise))] }, phase: activePhase?.name, week: currentWeek }; 
+      monitorPRs(newLog); 
+      setWorkoutHistory(prev => [newLog, ...prev]); 
+  };
 
   if (!isMounted) return null;
 
@@ -166,7 +236,7 @@ const App: React.FC = () => {
 
       <main className="max-w-7xl mx-auto px-4 py-6 md:py-10">
         {activeTab === 'strength' && (
-           <StrengthTab isDeloadActive={isDeloadActive} globalStrength={globalStrength} strengthInputs={strengthInputs} setStrengthInputs={setStrengthInputs} strengthProfiles={strengthProfiles} onSaveRecord={() => alert('Salvo!')} />
+           <StrengthTab isDeloadActive={isDeloadActive} globalStrength={globalStrength} strengthInputs={strengthInputs} setStrengthInputs={setStrengthInputs} strengthProfiles={strengthProfiles} onSaveRecord={saveStrengthRecord} />
         )}
         {activeTab === 'periodization' && (
            <StrategyTab macrocycles={macrocycles} activePhaseId={activePhaseId} isDeloadActive={isDeloadActive} onActivatePhase={handlePhaseActivation} manualMethodology={manualMethodology} setManualMethodology={setManualMethodology} manualRir={manualRir} setManualRir={setManualRir} manualProgression={manualProgression} setManualProgression={setManualProgression} />
