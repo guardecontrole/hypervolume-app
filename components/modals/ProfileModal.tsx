@@ -63,6 +63,7 @@ export const ProfileModal: React.FC<Props> = ({
         </div>
         
         <div className="space-y-8">
+          {/* Dados Pessoais */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Nome de Guerra</label>
@@ -74,38 +75,70 @@ export const ProfileModal: React.FC<Props> = ({
             </div>
           </div>
 
+          {/* Backup */}
           <div>
-             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Seus Recordes (1RM)</label>
-             <div className="space-y-3">
-                {['Supino', 'Agachamento', 'Levantamento Terra', 'Remada Curvada'].map(ex => {
-                   const val = strengthProfiles[ex] || 0;
-                   return (
-                      <div key={ex} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex justify-between items-center">
-                         <span className="text-xs font-black text-slate-400 uppercase">{ex}</span>
-                         <div className="flex items-center gap-2">
-                            <input type="number" value={val ? Math.round(val) : ''} onChange={(e) => setStrengthProfiles(prev => ({...prev, [ex]: parseFloat(e.target.value)||0}))} className="bg-transparent text-right w-20 font-black text-white outline-none border-b border-slate-700 focus:border-indigo-500" placeholder="0" />
-                            <span className="text-[10px] font-bold text-slate-600">KG</span>
-                         </div>
-                      </div>
-                   )
-                })}
-             </div>
-          </div>
-
-          <div>
-             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-4">Gestão de Dados</label>
+             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-4">Gestão de Dados (Backup)</label>
              <div className="grid grid-cols-2 gap-4">
                 <button onClick={handleExportBackup} className="bg-slate-800 border border-slate-700 p-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-slate-700 transition-all">
-                   <span className="text-lg">📤</span> <span className="text-[10px] font-black uppercase text-white">Fazer Backup</span>
+                   <span className="text-lg">📤</span> <span className="text-[10px] font-black uppercase text-white">Exportar JSON</span>
                 </button>
                 <button onClick={() => fileInputRef.current?.click()} className="bg-slate-800 border border-slate-700 p-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-slate-700 transition-all">
-                   <span className="text-lg">📥</span> <span className="text-[10px] font-black uppercase text-white">Restaurar</span>
+                   <span className="text-lg">📥</span> <span className="text-[10px] font-black uppercase text-white">Importar JSON</span>
                 </button>
                 <input type="file" ref={fileInputRef} style={{display:'none'}} accept=".json" onChange={handleImportBackup} />
              </div>
+             <p className="text-[9px] text-slate-600 mt-2 text-center italic">O backup salva todos os seus dados.</p>
+          </div>
+
+          <div className="w-full h-px bg-slate-800"></div>
+
+          {/* Dashboard de Força */}
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2"><span className="text-lg">💪</span> Dashboard de Força</h4>
+              <span className={`text-[10px] font-black px-3 py-1 rounded-full border ${isDeloadActive ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30'}`}>Power Index: {globalStrengthScore}</span>
+            </div>
+
+            <div className="space-y-3">
+              {['Supino', 'Agachamento', 'Levantamento Terra', 'Remada Curvada'].map(ex => {
+                const currentVal = strengthProfiles[ex] || 0;
+                const ratio = strengthInputs.bw > 0 ? (currentVal / strengthInputs.bw).toFixed(2) : '0.00';
+                const levelData = calculateStrengthLevel(ex, strengthInputs.bw, currentVal, 1);
+                
+                return (
+                  <div key={ex} className={`bg-slate-950 p-4 rounded-2xl border flex justify-between items-center group transition-all ${isDeloadActive ? 'border-emerald-900/30 hover:border-emerald-700' : 'border-slate-800 hover:border-slate-700'}`}>
+                    <div>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">{ex}</label>
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="number" 
+                          value={currentVal ? Math.round(currentVal) : ''} 
+                          onChange={(e) => setStrengthProfiles(prev => ({ ...prev, [ex]: parseFloat(e.target.value) || 0 }))}
+                          className="bg-transparent text-xl font-black text-white w-24 outline-none border-b border-slate-800 focus:border-indigo-500 transition-colors placeholder-slate-700"
+                          placeholder="0"
+                        />
+                        <span className="text-[10px] font-bold text-slate-600">KG (1RM)</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      {currentVal > 0 ? (
+                        <>
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded border ${levelData.bg} ${levelData.color} border-opacity-20`}>{levelData.level}</span>
+                          <p className="text-[9px] font-bold text-slate-500 mt-1">Ratio: {ratio}x BW</p>
+                        </>
+                      ) : (
+                        <span className="text-[9px] font-bold text-slate-700 bg-slate-900 px-2 py-1 rounded">DADOS INCOMPLETOS</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
-        <button onClick={onClose} className="w-full mt-8 py-4 rounded-xl font-black uppercase text-xs tracking-widest shadow-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all">Salvar e Fechar</button>
+        <button onClick={onClose} className={`w-full mt-8 py-4 rounded-xl font-black uppercase text-xs tracking-widest shadow-xl transition-all hover:scale-[1.02] active:scale-95 ${isDeloadActive ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20' : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/20'} text-white`}>
+          Salvar e Fechar
+        </button>
       </div>
     </div>
   );
