@@ -20,7 +20,6 @@ interface Props {
   setIsSaveModalOpen: (v: boolean) => void;
   setShowSelector: (v: boolean) => void;
   setTargetDay: (v: string) => void;
-  // Drag and Drop props
   handleDragStart: any;
   handleDragOver: any;
   handleDrop: any;
@@ -28,7 +27,6 @@ interface Props {
   draggedItem: any;
   dragOverDay: any;
   generateSmartSplit: () => void;
-  // Super Set props
   handleInitiateSuperSet: any;
   handleBreakSuperSet: any;
   superSetSelection: any;
