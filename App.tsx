@@ -1,335 +1,57 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { PlanItem, WorkoutSplit, WorkoutExercise, WorkoutLog, WorkoutSet } from './types';
 import { PREDEFINED_EXERCISES, DAYS_OF_WEEK, PERIODIZATION_PHASES, CATEGORY_ORDER, MUSCLE_SORT_ORDER, SECONDARY_MUSCLES, MUSCULOS_GRANDES } from './constants';
-import { calculateStrengthLevel, calculateGlobalStrengthLevel, classifyExercise, sortExercisesSmartly, calculate1RM, getExerciseCategory, analyzeTrends, checkRecuperationRisk, getShortMuscleName, calculateDetailedMuscleMetrics, calculateMuscleVolumeForLog } from './utils/helpers';
+import { calculateStrengthLevel, calculateGlobalStrengthLevel, classifyExercise, sortExercisesSmartly, calculate1RM, getExerciseCategory, analyzeTrends, checkRecuperationRisk, getShortMuscleName, getMuscleEmoji, getVolumeLevelData } from './utils/helpers';
 
 // COMPONENTS
 import { ExerciseSelectorModal } from './components/ExerciseSelectorModal';
 import { PlanImporterModal } from './components/PlanImporterModal';
-import { ReturnToTrainingModal } from './components/ReturnToTrainingModal';
 import { AchievementModal } from './components/AchievementModal';
-import { StatisticsDashboard } from './components/StatisticsDashboard';
-import { AICoach } from './components/AICoach';
 
-// NEW TABS & MODALS
+// TABS
 import { StrengthTab } from './components/tabs/StrengthTab';
-import { StrategyTab } from './components/tabs/StrategyTab';
 import { PlanTab } from './components/tabs/PlanTab';
-import { WorkoutsTab } from './components/tabs/WorkoutsTab';
-import { HistoryTab } from './components/tabs/HistoryTab';
-import { ProfileModal } from './components/modals/ProfileModal';
 
 const App: React.FC = () => {
   const [isMounted, setIsMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'strength' | 'plan' | 'workouts' | 'analysis' | 'history' | 'periodization'>('strength');
+  const [activeTab, setActiveTab] = useState<'strength' | 'plan'>('strength');
   const [weeklyPlan, setWeeklyPlan] = useState<PlanItem[]>([]);
   const [workouts, setWorkouts] = useState<WorkoutSplit>({});
   const [workoutHistory, setWorkoutHistory] = useState<WorkoutLog[]>([]);
   const [activePhaseId, setActivePhaseId] = useState<string | null>(null);
   const [currentWeek, setCurrentWeek] = useState<number>(1);
   const [manualRir, setManualRir] = useState<number>(1);
-  const [manualProgression, setManualProgression] = useState<any>('mixed');
+  const [manualProgression, setManualProgression] = useState<string>('mixed');
   const [manualMethodology, setManualMethodology] = useState<string>('');
   const [userName, setUserName] = useState<string>('Atleta');
   const [strengthProfiles, setStrengthProfiles] = useState<Record<string, number>>({});
   const [activeDays, setActiveDays] = useState<string[]>(DAYS_OF_WEEK.slice(0, 5));
   const [isDeloadActive, setIsDeloadActive] = useState(false);
   const [strengthInputs, setStrengthInputs] = useState({ exercise: 'Supino', bw: 80, load: 0, reps: 0 });
-  
+
   // UI States
   const [showSelector, setShowSelector] = useState(false);
-  const [showImporter, setShowImporter] = useState(false);
-  const [showReturnModal, setShowReturnModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
-  const [logName, setLogName] = useState('');
   const [targetDay, setTargetDay] = useState<string | null>(null);
-  const [saveButtonText, setSaveButtonText] = useState('💾 Salvar Semana');
-  
-  // Drag & SuperSet
-  const [draggedItem, setDraggedItem] = useState<{ exercise: WorkoutExercise, fromDay: string } | null>(null);
-  const [dragOverDay, setDragOverDay] = useState<string | null>(null);
-  const [superSetSelection, setSuperSetSelection] = useState<{ day: string, sourceId: number } | null>(null);
-  
-  // Analysis
-  const [analysisView, setAnalysisView] = useState<'realtime' | 'statistics' | 'ia'>('realtime');
-  const [achievement, setAchievement] = useState<any>(null);
-
-  useEffect(() => {
-    setIsMounted(true);
-    const savedPlan = localStorage.getItem('hv_plan'); if (savedPlan) setWeeklyPlan(JSON.parse(savedPlan));
-    const savedWorkouts = localStorage.getItem('hv_workouts'); if (savedWorkouts) setWorkouts(JSON.parse(savedWorkouts));
-    const savedHistory = localStorage.getItem('hv_workout_history'); if (savedHistory) setWorkoutHistory(JSON.parse(savedHistory));
-    const savedPhase = localStorage.getItem('hv_active_phase'); if (savedPhase && savedPhase !== "null") setActivePhaseId(savedPhase);
-    const savedWeek = localStorage.getItem('hv_current_week'); if (savedWeek) setCurrentWeek(parseInt(savedWeek));
-    const savedUser = localStorage.getItem('hv_user_name'); if (savedUser) setUserName(savedUser);
-    const savedProfiles = localStorage.getItem('hv_strength_profiles'); if (savedProfiles) setStrengthProfiles(JSON.parse(savedProfiles));
-    const savedBW = localStorage.getItem('hv_user_bw'); if (savedBW) setStrengthInputs(prev => ({ ...prev, bw: parseFloat(savedBW) }));
-    const savedManualRir = localStorage.getItem('hv_manual_rir'); if (savedManualRir) setManualRir(parseInt(savedManualRir));
-    const savedManualProg = localStorage.getItem('hv_manual_prog'); if (savedManualProg) setManualProgression(savedManualProg);
-    const savedManualMethod = localStorage.getItem('hv_manual_method'); if (savedManualMethod) setManualMethodology(savedManualMethod);
-    const savedActiveDays = localStorage.getItem('hv_active_days'); if (savedActiveDays) setActiveDays(JSON.parse(savedActiveDays));
-    const savedDeload = localStorage.getItem('hv_is_deload'); if (savedDeload) setIsDeloadActive(savedDeload === 'true');
-  }, []);
-
-  useEffect(() => {
-    if (!isMounted) return;
-    localStorage.setItem('hv_plan', JSON.stringify(weeklyPlan));
-    localStorage.setItem('hv_workouts', JSON.stringify(workouts));
-    localStorage.setItem('hv_workout_history', JSON.stringify(workoutHistory));
-    localStorage.setItem('hv_current_week', currentWeek.toString());
-    localStorage.setItem('hv_active_phase', activePhaseId || "null");
-    localStorage.setItem('hv_user_name', userName);
-    localStorage.setItem('hv_strength_profiles', JSON.stringify(strengthProfiles));
-    localStorage.setItem('hv_user_bw', strengthInputs.bw.toString());
-    localStorage.setItem('hv_manual_rir', manualRir.toString());
-    localStorage.setItem('hv_manual_prog', manualProgression);
-    localStorage.setItem('hv_manual_method', manualMethodology);
-    localStorage.setItem('hv_active_days', JSON.stringify(activeDays));
-    localStorage.setItem('hv_is_deload', isDeloadActive.toString());
-  }, [weeklyPlan, workouts, workoutHistory, activePhaseId, currentWeek, userName, strengthProfiles, strengthInputs.bw, manualRir, manualProgression, manualMethodology, activeDays, isDeloadActive, isMounted]);
-
-  const activePhase = useMemo(() => {
-    const basePhase = PERIODIZATION_PHASES.find(p => p.id === activePhaseId) || null;
-    if (basePhase?.id === 'f_manual') return { ...basePhase, rirTarget: manualRir, progressionRule: manualProgression, description: manualMethodology || basePhase.description };
-    return basePhase;
-  }, [activePhaseId, manualRir, manualProgression, manualMethodology]);
-
-  const globalStrength = useMemo(() => calculateGlobalStrengthLevel(strengthProfiles, strengthInputs.bw || 80), [strengthProfiles, strengthInputs.bw]);
-  const macrocycles = useMemo(() => {
-    const order = ['INÍCIO', 'FORÇA', 'REALIZAÇÃO', 'RESISTÊNCIA', 'HIPERTROFIA'];
-    const stages = Array.from(new Set(PERIODIZATION_PHASES.map(p => p.stage))).sort((a, b) => order.indexOf(a) - order.indexOf(b));
-    return stages.map(stage => ({ name: stage, phases: PERIODIZATION_PHASES.filter(p => p.stage === stage) }));
-  }, []);
-
-  // --- FUNÇÕES RESTAURADAS (ISSO QUE FALTAVA) ---
-  const toggleDay = (day: string) => setActiveDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
-  const addToPlan = (name: string) => setWeeklyPlan(prev => prev.find(p => p.name === name) ? prev : [...prev, { id: Date.now(), name, series: 0 }]);
-  
-  const addToDay = (day: string, name: string, series?: number) => {
-    const sCount = series || 3;
-    const initialSets: WorkoutSet[] = Array.from({ length: sCount }).map(() => ({ id: Math.random().toString(36).substr(2, 9), reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null }));
-    setWorkouts(prev => ({ ...prev, [day]: [...(prev[day] || []), { id: Date.now() + Math.random(), name, series: sCount, sets: initialSets, reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null }] }));
-  };
-
-  const updateWorkoutEx = (day: string, id: number, data: Partial<WorkoutExercise>) => setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => ex.id === id ? { ...ex, ...data } : ex)}));
-  const removeWorkoutEx = (day: string, id: number) => setWorkouts(prev => ({ ...prev, [day]: prev[day].filter(ex => ex.id !== id)}));
-  
-  const monitorPRs = (newLog: WorkoutLog) => {
-    const exercisesToCheck = ['Supino', 'Agachamento', 'Levantamento Terra', 'Remada Curvada'];
-    const bw = strengthInputs.bw || 80;
-    let updatedProfiles = { ...strengthProfiles };
-    let foundNewPR = false;
-    let achievementData = null;
-    const oldGlobal = calculateGlobalStrengthLevel(updatedProfiles, bw);
-
-    Object.values(newLog.split).flat().forEach((ex: WorkoutExercise) => {
-      const baseExName = exercisesToCheck.find(base => ex.name.includes(base));
-      if (baseExName) {
-        const currentPR = updatedProfiles[baseExName] || 0;
-        let best1RMInSesssion = 0;
-        if (ex.sets && ex.sets.length > 0) { ex.sets.forEach(set => { if (set.load && set.reps > 0) { const calc = calculate1RM(set.load, set.reps); if (calc > best1RMInSesssion) best1RMInSesssion = calc; } }); } else if (ex.load && ex.reps > 0) { best1RMInSesssion = calculate1RM(ex.load, ex.reps); }
-        if (best1RMInSesssion > currentPR + 0.1) { updatedProfiles[baseExName] = best1RMInSesssion; foundNewPR = true; achievementData = { exercise: baseExName, old1RM: currentPR, new1RM: best1RMInSesssion, oldScore: oldGlobal.score, newScore: calculateGlobalStrengthLevel(updatedProfiles, bw).score, oldLevel: oldGlobal.fullLevel, newLevel: calculateGlobalStrengthLevel(updatedProfiles, bw).fullLevel, changedLevel: oldGlobal.name !== calculateGlobalStrengthLevel(updatedProfiles, bw).name }; }
-      }
-    });
-    if (foundNewPR) { setStrengthProfiles(updatedProfiles); setAchievement(achievementData); }
-  };
-
-  const handleSaveWeek = () => {
-     const allExs = (Object.values(workouts) as WorkoutExercise[][]).reduce((acc, v) => acc.concat(v), []);
-     const totalSeries = allExs.reduce((acc, ex) => acc + (ex.sets?.length || ex.series || 0), 0);
-     const newLog: WorkoutLog = { id: Date.now(), date: new Date().toISOString(), name: logName || `S${currentWeek}`, totalSeries, split: JSON.parse(JSON.stringify(workouts)), phase: activePhase?.name, week: currentWeek };
-     monitorPRs(newLog);
-     setWorkoutHistory(prev => [newLog, ...prev]);
-     setIsSaveModalOpen(false); setLogName('');
-     setCurrentWeek(prev => prev < 4 ? prev + 1 : 1);
-     setSaveButtonText('✅ Salvo!');
-     setTimeout(() => setSaveButtonText('💾 Salvar Semana'), 2000);
-  };
-
-  // ESTA ERA A FUNÇÃO QUE FALTAVA
-  const handleApplyReturn = (newSplit: WorkoutSplit, phaseId: string) => { 
-      setWorkouts(newSplit); 
-      setActivePhaseId(phaseId); 
-      setCurrentWeek(1); 
-      setActiveTab('workouts'); 
-  };
-
-  const removeHistoryItem = (id: number) => { if (window.confirm("Excluir treino?")) setWorkoutHistory(prev => prev.filter(item => item.id !== id)); };
-  const clearHistory = () => { if (window.confirm("Apagar tudo?")) setWorkoutHistory([]); };
-  
-  const handleDragStart = (ex: WorkoutExercise, day: string) => !isDeloadActive && setDraggedItem({ exercise: ex, fromDay: day });
-  const handleDragOver = (e: React.DragEvent, day: string) => { e.preventDefault(); !isDeloadActive && setDragOverDay(day); };
-  const handleDrop = (e: React.DragEvent, toDay: string) => {
-     e.preventDefault(); setDragOverDay(null);
-     if (!draggedItem || draggedItem.fromDay === toDay || isDeloadActive) return setDraggedItem(null);
-     setWorkouts(prev => ({ ...prev, [draggedItem.fromDay]: prev[draggedItem.fromDay].filter(ex => ex.id !== draggedItem.exercise.id), [toDay]: [...(prev[toDay] || []), draggedItem.exercise] }));
-     setDraggedItem(null);
-  };
-  const handleDragLeave = () => setDragOverDay(null);
-
-  const handleInitiateSuperSet = (day: string, id: number) => !isDeloadActive && setSuperSetSelection({ day, sourceId: id });
-  const handleBreakSuperSet = (day: string, superSetId: string) => setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => ex.superSetId === superSetId ? { ...ex, superSetId: undefined } : ex) }));
-  const handleExerciseClick = (day: string, id: number) => { 
-      if (superSetSelection && !isDeloadActive) { 
-          if(superSetSelection.day !== day) { alert('Mesmo dia apenas'); setSuperSetSelection(null); return; }
-          const newId = Math.random().toString(36); 
-          setWorkouts(prev => ({...prev, [day]: prev[day].map(ex => (ex.id === superSetSelection.sourceId || ex.id === id) ? {...ex, superSetId: newId} : ex)})); 
-          setSuperSetSelection(null); 
-      } 
-  };
-  const handleQuickLink = (day: string, id1: number, id2: number) => { const newId = Math.random().toString(36); setWorkouts(prev => ({...prev, [day]: prev[day].map(ex => (ex.id === id1 || ex.id === id2) ? {...ex, superSetId: newId} : ex)})); };
-  
-  const generateSmartSplit = () => {
-    const split: WorkoutSplit = {};
-    const effectiveDays = activeDays.length > 0 ? activeDays : DAYS_OF_WEEK.slice(0, 4);
-    effectiveDays.forEach(d => split[d] = []);
-    const categories: Record<string, PlanItem[]> = { 'Push': [], 'Pull': [], 'Legs': [], 'Core/Accessory': [] };
-    weeklyPlan.filter(p => p.series > 0).forEach(item => { const cat = classifyExercise(item.name, PREDEFINED_EXERCISES); categories[cat].push(item); });
-    effectiveDays.forEach((day, idx) => {
-        const rotationIdx = idx % 3;
-        const targetCat = rotationIdx === 0 ? 'Push' : rotationIdx === 1 ? 'Pull' : 'Legs';
-        categories[targetCat].forEach(item => {
-            const freq = Math.max(1, effectiveDays.length / 3);
-            const seriesPerDay = Math.ceil(item.series / freq);
-            const currentTotal = (Object.values(split) as WorkoutExercise[][]).flat().filter(ex => ex.name === item.name).reduce((a,b) => a + (b.sets?.length || b.series), 0);
-            if (currentTotal < item.series) {
-                const toAdd = Math.min(seriesPerDay, item.series - currentTotal);
-                const initialSets: WorkoutSet[] = Array.from({ length: toAdd }).map(() => ({ id: Math.random().toString(36).substr(2, 9), reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null }));
-                split[day].push({ id: Date.now() + Math.random(), name: item.name, series: toAdd, sets: initialSets, reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null });
-            }
-        });
-        split[day] = sortExercisesSmartly(split[day]);
-    });
-    setWorkouts(split);
-    setActiveTab('workouts');
-  };
-
-  const handleSaveExercise = (day: string, exercise: WorkoutExercise) => { 
-      const newLog: WorkoutLog = { id: Date.now(), date: new Date().toISOString(), name: `Log: ${exercise.name}`, totalSeries: exercise.sets?.length || exercise.series || 0, split: { [day]: [JSON.parse(JSON.stringify(exercise))] }, phase: activePhase?.name, week: currentWeek }; 
-      monitorPRs(newLog); 
-      setWorkoutHistory(prev => [newLog, ...prev]); 
-  };
-
-  if (!isMounted) return null;
-
-  return (
-    <div className={`min-h-screen pb-24 md:pb-20 transition-colors duration-500 ${isDeloadActive ? 'bg-slate-950' : 'bg-slate-950'}`}>
-      <header className={`backdrop-blur-md border-b sticky top-0 z-50 transition-colors duration-300 ${isDeloadActive ? 'bg-emerald-950/40 border-emerald-900/50' : 'bg-slate-900/80 border-slate-800'}`}>
-        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col lg:flex-row justify-between items-center gap-3">
-          <div className="flex items-center gap-6">
-            <h1 className={`text-lg md:text-xl font-black bg-clip-text text-transparent bg-gradient-to-r ${isDeloadActive ? 'from-emerald-400 to-teal-500' : 'from-indigo-400 to-purple-500'} tracking-tighter uppercase`}>HYPERVOLUME</h1>
-            <div className="h-6 w-px bg-slate-800 hidden lg:block"></div>
-            <div className="flex items-center gap-4 bg-slate-800/30 px-4 py-2 rounded-2xl border border-slate-700/50">
-               <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${isDeloadActive ? 'from-emerald-600 to-teal-600' : 'from-indigo-600 to-purple-600'} flex items-center justify-center text-xs font-black shadow-lg`}>{userName.charAt(0).toUpperCase()}</div>
-               <div className="flex flex-col"><span className="text-xs font-black text-slate-200">{userName}</span><span className={`text-[9px] font-black ${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'}`}>{globalStrength.fullLevel}</span></div>
-               <button onClick={() => setShowSettings(true)} className="w-8 h-8 flex items-center justify-center hover:bg-slate-700 rounded-lg text-slate-500"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg></button>
-            </div>
-          </div>
-          <nav className="flex bg-slate-800/50 p-1 rounded-xl overflow-x-auto no-scrollbar">
-            {[{ id: 'strength', label: 'Força', icon: '🦾' }, { id: 'periodization', label: 'Estratégia', icon: '📖' }, { id: 'plan', label: 'Plano', icon: '📐' }, { id: 'workouts', label: 'Treinos', icon: '🏋️' }, { id: 'analysis', label: 'Análise', icon: '📊' }, { id: 'history', label: 'Histórico', icon: '🗓️' }].map(tab => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === tab.id ? (isDeloadActive ? 'bg-emerald-600 shadow-emerald-600/30' : 'bg-slate-700') + ' text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}><span>{tab.icon}</span> {tab.label}</button>
-            ))}
-          </nav>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 py-6 md:py-10">
-        {activeTab === 'strength' && (
-           <StrengthTab isDeloadActive={isDeloadActive} globalStrength={globalStrength} strengthInputs={strengthInputs} setStrengthInputs={setStrengthInputs} strengthProfiles={strengthProfiles} onSaveRecord={saveStrengthRecord} />
-        )}
-        {activeTab === 'periodization' && (
-           <StrategyTab macrocycles={macrocycles} activePhaseId={activePhaseId} isDeloadActive={isDeloadActive} onActivatePhase={handlePhaseActivation} manualMethodology={manualMethodology} setManualMethodology={setManualMethodology} manualRir={manualRir} setManualRir={setManualRir} manualProgression={manualProgression} setManualProgression={setManualProgression} />
-        )}
-        {activeTab === 'plan' && (
-           <PlanTab weeklyPlan={weeklyPlan} setWeeklyPlan={setWeeklyPlan} isDeloadActive={isDeloadActive} globalStrengthScore={globalStrength.score} setShowSelector={setShowSelector} setTargetDay={setTargetDay} />
-        )}
-        {activeTab === 'workouts' && (
-           <WorkoutsTab 
-              isDeloadActive={isDeloadActive} setIsDeloadActive={setIsDeloadActive} activePhase={activePhase} currentWeek={currentWeek} setCurrentWeek={setCurrentWeek} 
-              workouts={workouts} setWorkouts={setWorkouts} activeDays={activeDays} toggleDay={toggleDay} workoutHistory={workoutHistory} 
-              simport { PlanImporterModal } from './components/PlanImporterModal';
-import { WorkoutRow } from './components/WorkoutRow';
-import { ReturnToTrainingModal } from './components/ReturnToTrainingModal';
-import { AchievementModal } from './components/AchievementModal';
-import { StatisticsDashboard } from './components/StatisticsDashboard';
-import { AICoach } from './components/AICoach';
-
-const App: React.FC = () => {
-  const [isMounted, setIsMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'strength' | 'plan' | 'workouts' | 'analysis' | 'history' | 'periodization'>('strength');
-  const [weeklyPlan, setWeeklyPlan] = useState<PlanItem[]>([]);
-  const [workouts, setWorkouts] = useState<WorkoutSplit>({});
-  const [workoutHistory, setWorkoutHistory] = useState<WorkoutLog[]>([]);
-  const [activePhaseId, setActivePhaseId] = useState<string | null>(null);
-  const [currentWeek, setCurrentWeek] = useState<number>(1);
-  const [manualRir, setManualRir] = useState<number>(1);
-  const [manualProgression, setManualProgression] = useState<'load' | 'reps' | 'volume' | 'mixed' | 'technique'>('mixed');
-  const [manualMethodology, setManualMethodology] = useState<string>('');
-  const [userName, setUserName] = useState<string>('Atleta');
-  const [strengthProfiles, setStrengthProfiles] = useState<Record<string, number>>({});
-  const [activeDays, setActiveDays] = useState<string[]>(DAYS_OF_WEEK.slice(0, 5)); // Padrão Seg-Sex
-  const [isDeloadActive, setIsDeloadActive] = useState(false);
-  const [strengthInputs, setStrengthInputs] = useState({
-    exercise: 'Supino',
-    bw: 80,
-    load: 0,
-    reps: 0
-  });
-
-  // Super Set Selection State
-  const [superSetSelection, setSuperSetSelection] = useState<{ day: string, sourceId: number } | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [showSelector, setShowSelector] = useState(false);
-  const [showImporter, setShowImporter] = useState(false);
-  const [showReturnModal, setShowReturnModal] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
-  const [logName, setLogName] = useState('');
-  const [targetDay, setTargetDay] = useState<string | null>(null);
-  const [numTrainingDays, setNumTrainingDays] = useState(4);
   const [showSecondary, setShowSecondary] = useState(false);
-  const [saveButtonText, setSaveButtonText] = useState('💾 Salvar Semana');
-  const [draggedItem, setDraggedItem] = useState<{ exercise: WorkoutExercise, fromDay: string } | null>(null);
-  const [dragOverDay, setDragOverDay] = useState<string | null>(null);
-  const [analysisView, setAnalysisView] = useState<'realtime' | 'statistics' | 'ia'>('realtime');
   const [expandedExerciseId, setExpandedExerciseId] = useState<number | null>(null);
   const [collapsedCategories, setCollapsedCategories] = useState<string[]>([]);
   const [focusedPlanExerciseId, setFocusedPlanExerciseId] = useState<number | null>(null);
-
-  // Achievements State
   const [achievement, setAchievement] = useState<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setIsMounted(true);
-    const savedPlan = localStorage.getItem('hv_plan');
-    const savedWorkouts = localStorage.getItem('hv_workouts');
-    const savedHistory = localStorage.getItem('hv_workout_history');
-    const savedPhase = localStorage.getItem('hv_active_phase');
-    const savedWeek = localStorage.getItem('hv_current_week');
-    const savedUser = localStorage.getItem('hv_user_name');
-    const savedProfiles = localStorage.getItem('hv_strength_profiles');
-    const savedBW = localStorage.getItem('hv_user_bw');
-    const savedManualRir = localStorage.getItem('hv_manual_rir');
-    const savedManualProg = localStorage.getItem('hv_manual_prog');
-    const savedManualMethod = localStorage.getItem('hv_manual_method');
-    const savedActiveDays = localStorage.getItem('hv_active_days');
-    const savedDeload = localStorage.getItem('hv_is_deload');
-    
-    if (savedPlan) setWeeklyPlan(JSON.parse(savedPlan));
-    if (savedWorkouts) setWorkouts(JSON.parse(savedWorkouts));
-    if (savedHistory) setWorkoutHistory(JSON.parse(savedHistory));
-    if (savedPhase && savedPhase !== "null") setActivePhaseId(savedPhase);
-    if (savedWeek) setCurrentWeek(parseInt(savedWeek));
-    if (savedUser) setUserName(savedUser);
-    if (savedProfiles) setStrengthProfiles(JSON.parse(savedProfiles));
-    if (savedBW) setStrengthInputs(prev => ({ ...prev, bw: parseFloat(savedBW) }));
-    if (savedManualRir) setManualRir(parseInt(savedManualRir));
-    if (savedManualProg) setManualProgression(savedManualProg as any);
-    if (savedManualMethod) setManualMethodology(savedManualMethod);
-    if (savedActiveDays) setActiveDays(JSON.parse(savedActiveDays));
-    if (savedDeload) setIsDeloadActive(savedDeload === 'true');
+    const load = (key: string) => localStorage.getItem(key);
+    if (load('hv_plan')) setWeeklyPlan(JSON.parse(load('hv_plan')!));
+    if (load('hv_workouts')) setWorkouts(JSON.parse(load('hv_workouts')!));
+    if (load('hv_workout_history')) setWorkoutHistory(JSON.parse(load('hv_workout_history')!));
+    if (load('hv_active_phase') && load('hv_active_phase') !== "null") setActivePhaseId(load('hv_active_phase'));
+    if (load('hv_current_week')) setCurrentWeek(parseInt(load('hv_current_week')!));
+    if (load('hv_user_name')) setUserName(load('hv_user_name')!);
+    if (load('hv_strength_profiles')) setStrengthProfiles(JSON.parse(load('hv_strength_profiles')!));
+    if (load('hv_user_bw')) setStrengthInputs(prev => ({ ...prev, bw: parseFloat(load('hv_user_bw')!) }));
+    if (load('hv_is_deload')) setIsDeloadActive(load('hv_is_deload') === 'true');
   }, []);
 
   useEffect(() => {
@@ -337,531 +59,102 @@ const App: React.FC = () => {
     localStorage.setItem('hv_plan', JSON.stringify(weeklyPlan));
     localStorage.setItem('hv_workouts', JSON.stringify(workouts));
     localStorage.setItem('hv_workout_history', JSON.stringify(workoutHistory));
-    localStorage.setItem('hv_current_week', currentWeek.toString());
     localStorage.setItem('hv_active_phase', activePhaseId || "null");
     localStorage.setItem('hv_user_name', userName);
     localStorage.setItem('hv_strength_profiles', JSON.stringify(strengthProfiles));
     localStorage.setItem('hv_user_bw', strengthInputs.bw.toString());
-    localStorage.setItem('hv_manual_rir', manualRir.toString());
-    localStorage.setItem('hv_manual_prog', manualProgression);
-    localStorage.setItem('hv_manual_method', manualMethodology);
-    localStorage.setItem('hv_active_days', JSON.stringify(activeDays));
     localStorage.setItem('hv_is_deload', isDeloadActive.toString());
-  }, [weeklyPlan, workouts, workoutHistory, activePhaseId, currentWeek, userName, strengthProfiles, strengthInputs.bw, manualRir, manualProgression, manualMethodology, activeDays, isDeloadActive, isMounted]);
+  }, [weeklyPlan, workouts, workoutHistory, activePhaseId, userName, strengthProfiles, strengthInputs.bw, isDeloadActive, isMounted]);
 
-  const activePhase = useMemo(() => {
-    const basePhase = PERIODIZATION_PHASES.find(p => p.id === activePhaseId) || null;
-    if (basePhase?.id === 'f_manual') {
-      return { 
-        ...basePhase, 
-        rirTarget: manualRir, 
-        progressionRule: manualProgression,
-        description: manualMethodology || basePhase.description 
-      };
-    }
-    return basePhase;
-  }, [activePhaseId, manualRir, manualProgression, manualMethodology]);
-
-  const strengthResult = useMemo(() => 
-    calculateStrengthLevel(strengthInputs.exercise, strengthInputs.bw, strengthInputs.load, strengthInputs.reps),
-    [strengthInputs]
-  );
-
-  const globalStrength = useMemo(() => 
-    calculateGlobalStrengthLevel(strengthProfiles, strengthInputs.bw || 80),
-    [strengthProfiles, strengthInputs.bw]
-  );
-
-  const visibleMuscles = useMemo(() => {
-    return showSecondary ? MUSCLE_SORT_ORDER : MUSCLE_SORT_ORDER.filter(m => !SECONDARY_MUSCLES.includes(m));
-  }, [showSecondary]);
+  const activePhase = useMemo(() => PERIODIZATION_PHASES.find(p => p.id === activePhaseId) || null, [activePhaseId]);
+  const globalStrength = useMemo(() => calculateGlobalStrengthLevel(strengthProfiles, strengthInputs.bw || 80), [strengthProfiles, strengthInputs.bw]);
+  const strengthResult = useMemo(() => calculateStrengthLevel(strengthInputs.exercise, strengthInputs.bw, strengthInputs.load, strengthInputs.reps), [strengthInputs]);
 
   const muscleTotals = useMemo(() => {
     const totals: Record<string, number> = {};
     MUSCLE_SORT_ORDER.forEach(m => totals[m] = 0);
     weeklyPlan.forEach(item => {
       const ex = PREDEFINED_EXERCISES.find(e => e.name === item.name);
-      if (ex) {
-        ex.muscles.forEach(m => {
-          totals[m.name] += (item.series || 0) * m.contribution;
-        });
-      }
+      if (ex) ex.muscles.forEach(m => { totals[m.name] += (item.series || 0) * m.contribution; });
     });
     return totals;
   }, [weeklyPlan]);
 
-  const focusedPlanExerciseData = useMemo(() => {
-    if (!focusedPlanExerciseId) return null;
-    const item = weeklyPlan.find(p => p.id === focusedPlanExerciseId);
-    return item ? PREDEFINED_EXERCISES.find(ex => ex.name === item.name) : null;
-  }, [focusedPlanExerciseId, weeklyPlan]);
-
   const groupedPlan = useMemo(() => {
     const groups: Record<string, PlanItem[]> = {};
     CATEGORY_ORDER.forEach(cat => groups[cat] = []);
-    
     weeklyPlan.forEach(item => {
       const ex = PREDEFINED_EXERCISES.find(e => e.name === item.name);
       const cat = ex ? getExerciseCategory(ex) : 'Outros';
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(item);
     });
-    
     return groups;
   }, [weeklyPlan]);
 
-  const recuperationRisks = useMemo(() => checkRecuperationRisk(workouts), [workouts]);
-  const analysisData = useMemo(() => analyzeTrends(workoutHistory, globalStrength.score), [workoutHistory, globalStrength.score]);
+  const visibleMuscles = useMemo(() => showSecondary ? MUSCLE_SORT_ORDER : MUSCLE_SORT_ORDER.filter(m => !SECONDARY_MUSCLES.includes(m)), [showSecondary]);
+  const focusedPlanExerciseData = useMemo(() => focusedPlanExerciseId ? PREDEFINED_EXERCISES.find(ex => ex.name === weeklyPlan.find(p => p.id === focusedPlanExerciseId)?.name) : null, [focusedPlanExerciseId, weeklyPlan]);
 
-  const macrocycles = useMemo(() => {
-    const order = ['INÍCIO', 'FORÇA', 'REALIZAÇÃO', 'RESISTÊNCIA', 'HIPERTROFIA'];
-    const stages = Array.from(new Set(PERIODIZATION_PHASES.map(p => p.stage)))
-      .sort((a, b) => order.indexOf(a) - order.indexOf(b));
-      
-    return stages.map(stage => ({
-      name: stage,
-      phases: PERIODIZATION_PHASES.filter(p => p.stage === stage)
-    }));
-  }, []);
-
-  const todayName = useMemo(() => {
-    const idx = new Date().getDay();
-    const normalizedIdx = idx === 0 ? 6 : idx - 1;
-    return DAYS_OF_WEEK[normalizedIdx];
-  }, []);
-
-  const toggleDay = (day: string) => {
-    setActiveDays(prev => 
-      prev.includes(day) 
-        ? prev.filter(d => d !== day) 
-        : [...prev].sort((a, b) => DAYS_OF_WEEK.indexOf(a) - DAYS_OF_WEEK.indexOf(b)).concat(day).sort((a, b) => DAYS_OF_WEEK.indexOf(a) - DAYS_OF_WEEK.indexOf(b))
-    );
-  };
-
-  const toggleCategory = (cat: string) => {
-    setCollapsedCategories(prev => 
-      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-    );
-  };
-
-  const handleInitiateSuperSet = (day: string, id: number) => {
-    if (isDeloadActive) return;
-    setSuperSetSelection({ day, sourceId: id });
-  };
-
-  const handleQuickLink = (day: string, currentId: number, nextId: number) => {
-    if (isDeloadActive) return;
-    const newSuperSetId = Math.random().toString(36).substr(2, 9);
-    setWorkouts(prev => ({
-      ...prev,
-      [day]: prev[day].map(ex => 
-        (ex.id === currentId || ex.id === nextId)
-          ? { ...ex, superSetId: newSuperSetId }
-          : ex
-      )
-    }));
-  };
-
-  const handleExerciseClick = (day: string, targetId: number) => {
-    if (!superSetSelection || isDeloadActive) return;
-
-    if (superSetSelection.day !== day) {
-      alert("Selecione um exercício do mesmo dia.");
-      setSuperSetSelection(null);
-      return;
+  // ACTIONS
+  const addToPlan = (name: string) => setWeeklyPlan(prev => prev.find(p => p.name === name) ? prev : [...prev, { id: Date.now(), name, series: 0 }]);
+  const removeFromPlan = (id: number) => setWeeklyPlan(prev => prev.filter(p => p.id !== id));
+  const updateSeries = (id: number, series: number) => setWeeklyPlan(prev => prev.map(p => p.id === id ? { ...p, series } : p));
+  const saveStrengthRecord = () => {
+    if (strengthResult.oneRM > 0) {
+      setStrengthProfiles(prev => ({ ...prev, [strengthInputs.exercise]: strengthResult.oneRM }));
+      alert(`Recorde de ${strengthInputs.exercise} atualizado!`);
     }
-
-    if (superSetSelection.sourceId === targetId) {
-      setSuperSetSelection(null);
-      return;
-    }
-
-    const targetEx = workouts[day].find(ex => ex.id === targetId);
-    const exData = PREDEFINED_EXERCISES.find(e => e.name === targetEx?.name);
-    
-    if (exData?.isCompound && !exData?.isGuided) {
-      alert("Proibido: Super Sets são permitidos apenas para exercícios Metabólicos (Máquinas ou Isolados).");
-      setSuperSetSelection(null);
-      return;
-    }
-
-    const newSuperSetId = Math.random().toString(36).substr(2, 9);
-    setWorkouts(prev => ({
-      ...prev,
-      [day]: prev[day].map(ex => 
-        (ex.id === superSetSelection.sourceId || targetId === ex.id)
-          ? { ...ex, superSetId: newSuperSetId }
-          : ex
-      )
-    }));
-    setSuperSetSelection(null);
-  };
-
-  const handleBreakSuperSet = (day: string, superSetId: string) => {
-    setWorkouts(prev => ({
-      ...prev,
-      [day]: prev[day].map(ex => 
-        ex.superSetId === superSetId 
-          ? { ...ex, superSetId: undefined } 
-          : ex
-      )
-    }));
   };
 
   const handleExportBackup = () => {
-    const allData = { ...localStorage };
-    const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify({ ...localStorage }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    const today = new Date().toISOString().split('T')[0];
-    link.download = `backup_hypervolume_${today}.json`;
-    document.body.appendChild(link);
+    link.download = `backup_hypervolume.json`;
     link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   };
 
   const handleImportBackup = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const backupData = JSON.parse(e.target?.result as string);
-        
-        if (window.confirm("Atenção: A importação substituirá todos os seus dados atuais. O aplicativo será reiniciado. Deseja continuar?")) {
+        const data = JSON.parse(e.target?.result as string);
+        if (window.confirm("Substituir todos os dados?")) {
           localStorage.clear();
-          Object.keys(backupData).forEach((key) => {
-            localStorage.setItem(key, backupData[key]);
-          });
-          alert('Backup restaurado com sucesso! O app será reiniciado.');
-          window.location.reload(); 
+          Object.keys(data).forEach(k => localStorage.setItem(k, data[k]));
+          window.location.reload();
         }
-      } catch (error) {
-        alert('Erro ao ler o arquivo de backup. Verifique se é um JSON válido.');
-        console.error(error);
-      }
+      } catch { alert('Erro no arquivo.'); }
     };
     reader.readAsText(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   if (!isMounted) return null;
 
-  const monitorPRs = (newLog: WorkoutLog) => {
-    const exercisesToCheck = ['Supino', 'Agachamento', 'Levantamento Terra', 'Remada Curvada'];
-    const bw = strengthInputs.bw || 80;
-    
-    let updatedProfiles = { ...strengthProfiles };
-    let foundNewPR = false;
-    let achievementData = null;
-
-    const oldGlobal = calculateGlobalStrengthLevel(updatedProfiles, bw);
-
-    Object.values(newLog.split).flat().forEach((ex: WorkoutExercise) => {
-      const baseExName = exercisesToCheck.find(base => ex.name.includes(base));
-      if (baseExName) {
-        const currentPR = updatedProfiles[baseExName] || 0;
-        let best1RMInSesssion = 0;
-
-        if (ex.sets && ex.sets.length > 0) {
-          ex.sets.forEach(set => {
-            if (set.load && set.reps > 0) {
-              const calc = calculate1RM(set.load, set.reps);
-              if (calc > best1RMInSesssion) best1RMInSesssion = calc;
-            }
-          });
-        } else if (ex.load && ex.reps > 0) {
-          best1RMInSesssion = calculate1RM(ex.load, ex.reps);
-        }
-
-        if (best1RMInSesssion > currentPR + 0.1) {
-          updatedProfiles[baseExName] = best1RMInSesssion;
-          foundNewPR = true;
-          
-          const newGlobal = calculateGlobalStrengthLevel(updatedProfiles, bw);
-          achievementData = {
-            exercise: baseExName,
-            old1RM: currentPR,
-            new1RM: best1RMInSesssion,
-            oldScore: oldGlobal.score,
-            newScore: newGlobal.score,
-            oldLevel: oldGlobal.fullLevel,
-            newLevel: newGlobal.fullLevel,
-            changedLevel: oldGlobal.name !== newGlobal.name
-          };
-        }
-      }
-    });
-
-    if (foundNewPR) {
-      setStrengthProfiles(updatedProfiles);
-      setAchievement(achievementData);
-    }
-  };
-
-  const handleSaveExercise = (day: string, exercise: WorkoutExercise) => {
-    const newLog: WorkoutLog = {
-      id: Date.now(),
-      date: new Date().toISOString(),
-      name: `Log: ${exercise.name}`,
-      totalSeries: exercise.sets?.length || exercise.series || 0,
-      split: { [day]: [JSON.parse(JSON.stringify(exercise))] },
-      phase: activePhase?.name,
-      week: currentWeek
-    };
-    monitorPRs(newLog);
-    setWorkoutHistory(prev => [newLog, ...prev]);
-  };
-
-  const saveStrengthRecord = () => {
-     if (strengthResult.oneRM > 0) {
-       setStrengthProfiles(prev => ({
-           ...prev,
-           [strengthInputs.exercise]: strengthResult.oneRM
-       }));
-       alert(`1RM de ${strengthInputs.exercise} atualizado: ${strengthResult.oneRM.toFixed(1)}kg`);
-     }
-  };
-
-  const handlePhaseActivation = (phaseId: string) => {
-      setActivePhaseId(phaseId);
-      setCurrentWeek(1);
-  };
-
-  const addToPlan = (name: string) => {
-    setWeeklyPlan(prev => {
-        if (prev.find(p => p.name === name)) return prev;
-        return [...prev, { id: Date.now(), name, series: 0 }];
-    });
-  };
-
-  const addToDay = (day: string, name: string, series?: number) => {
-    const sCount = series || 3;
-    const initialSets: WorkoutSet[] = Array.from({ length: sCount }).map(() => ({
-      id: Math.random().toString(36).substr(2, 9),
-      reps: 10,
-      load: null,
-      rir: activePhase ? activePhase.rirTarget : null
-    }));
-
-    setWorkouts(prev => {
-        const newEx: WorkoutExercise = { 
-            id: Date.now() + Math.random(), 
-            name, 
-            series: sCount, 
-            sets: initialSets,
-            reps: 10, 
-            load: null, 
-            rir: activePhase ? activePhase.rirTarget : null 
-        };
-        const currentDayExs = prev[day] || [];
-        return {...prev, [day]: [...currentDayExs, newEx]};
-    });
-  };
-
-  const updateSeries = (id: number, series: number) => setWeeklyPlan(prev => prev.map(p => p.id === id ? { ...p, series } : p));
-  const removeFromPlan = (id: number) => setWeeklyPlan(prev => prev.filter(p => p.id !== id));
-  const updateWorkoutEx = (day: string, id: number, data: Partial<WorkoutExercise>) => setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => ex.id === id ? { ...ex, ...data } : ex)}));
-  const removeWorkoutEx = (day: string, id: number) => setWorkouts(prev => ({ ...prev, [day]: prev[day].filter(ex => ex.id !== id)}));
-
-  const handleSaveWeek = () => {
-    const allExs = (Object.values(workouts) as WorkoutExercise[][]).reduce((acc: WorkoutExercise[], v) => acc.concat(v), []);
-    const totalSeries = allExs.reduce((acc, ex) => acc + (ex.sets?.length || ex.series || 0), 0);
-    if (totalSeries === 0) return;
-
-    const newLog: WorkoutLog = {
-      id: Date.now(),
-      date: new Date().toISOString(),
-      name: logName || `S${currentWeek} - ${activePhase?.name || 'Geral'}`,
-      totalSeries,
-      split: JSON.parse(JSON.stringify(workouts)),
-      phase: activePhase?.name,
-      week: currentWeek
-    };
-    
-    monitorPRs(newLog);
-    setWorkoutHistory(prev => [newLog, ...prev]);
-    setIsSaveModalOpen(false);
-    setLogName('');
-    setSaveButtonText('✅ Salvo!');
-    setCurrentWeek(prev => prev < 4 ? prev + 1 : 1);
-    setTimeout(() => setSaveButtonText('💾 Salvar Semana'), 2000);
-  };
-
-  const handleApplyReturn = (newSplit: WorkoutSplit, phaseId: string) => {
-    setWorkouts(newSplit);
-    setActivePhaseId(phaseId);
-    setCurrentWeek(1);
-    setActiveTab('workouts');
-  };
-
-  const removeHistoryItem = (id: number) => {
-    if (window.confirm("Tem certeza que deseja excluir este treino?")) {
-      setWorkoutHistory(prev => prev.filter(item => item.id !== id));
-    }
-  };
-
-  const clearHistory = () => {
-    if (window.confirm("Tem certeza que deseja apagar TODO o histórico? Essa ação é irreversível.")) {
-      setWorkoutHistory([]);
-    }
-  };
-
-  const handleDragStart = (exercise: WorkoutExercise, fromDay: string) => {
-    if (isDeloadActive) return;
-    setDraggedItem({ exercise, fromDay });
-  };
-
-  const handleDragOver = (e: React.DragEvent, day: string) => {
-    e.preventDefault();
-    if (isDeloadActive) return;
-    setDragOverDay(day);
-  };
-
-  const handleDragLeave = () => {
-    setDragOverDay(null);
-  };
-
-  const handleDrop = (e: React.DragEvent, toDay: string) => {
-    e.preventDefault();
-    setDragOverDay(null);
-    if (!draggedItem || draggedItem.fromDay === toDay || isDeloadActive) {
-      setDraggedItem(null);
-      return;
-    }
-
-    setWorkouts(prev => {
-      const sourceDayExs = (prev[draggedItem.fromDay] || []).filter(ex => ex.id !== draggedItem.exercise.id);
-      const targetDayExs = [...(prev[toDay] || []), draggedItem.exercise];
-      
-      return {
-        ...prev,
-        [draggedItem.fromDay]: sourceDayExs,
-        [toDay]: targetDayExs
-      };
-    });
-    setDraggedItem(null);
-  };
-
-  const generateSmartSplit = () => {
-    const split: WorkoutSplit = {};
-    const effectiveDays = activeDays.length > 0 ? activeDays : DAYS_OF_WEEK.slice(0, 4);
-    effectiveDays.forEach(d => split[d] = []);
-    
-    const categories: Record<string, PlanItem[]> = { 'Push': [], 'Pull': [], 'Legs': [], 'Core/Accessory': [] };
-    weeklyPlan.filter(p => p.series > 0).forEach(item => {
-        const cat = classifyExercise(item.name, PREDEFINED_EXERCISES);
-        categories[cat].push(item);
-    });
-    
-    effectiveDays.forEach((day, idx) => {
-        const rotationIdx = idx % 3;
-        const targetCat = rotationIdx === 0 ? 'Push' : rotationIdx === 1 ? 'Pull' : 'Legs';
-        categories[targetCat].forEach(item => {
-            const freq = Math.max(1, effectiveDays.length / 3);
-            const seriesPerDay = Math.ceil(item.series / freq);
-            const currentTotal = (Object.values(split) as WorkoutExercise[][]).flat().filter(ex => ex.name === item.name).reduce((a,b) => a + (b.sets?.length || b.series), 0);
-            if (currentTotal < item.series) {
-                const toAdd = Math.min(seriesPerDay, item.series - currentTotal);
-                const initialSets: WorkoutSet[] = Array.from({ length: toAdd }).map(() => ({
-                  id: Math.random().toString(36).substr(2, 9),
-                  reps: 10,
-                  load: null,
-                  rir: activePhase ? activePhase.rirTarget : null
-                }));
-                split[day].push({ id: Date.now() + Math.random(), name: item.name, series: toAdd, sets: initialSets, reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null });
-            }
-        });
-        split[day] = sortExercisesSmartly(split[day]);
-    });
-    setWorkouts(split);
-    setActiveTab('workouts');
-  };
-
-  const toggleExpandExercise = (id: number) => {
-    setExpandedExerciseId(prev => prev === id ? null : id);
-  };
-
-  const getPhaseHeaderStyle = () => {
-    if (isDeloadActive) return 'bg-emerald-950/30 border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.15)]';
-    if (!activePhase) return 'bg-slate-900 border-slate-800';
-    return 'bg-indigo-950/30 border-indigo-500/30 shadow-none';
-  };
-
-  const getPhaseIconStyle = () => {
-    if (isDeloadActive) return 'bg-emerald-600';
-    if (!activePhase) return 'bg-slate-700';
-    return 'bg-indigo-600';
-  };
-
-  const getVolumeStatusColor = (status?: string) => {
-    switch(status) {
-      case 'MANUTENÇÃO': return 'text-blue-400 bg-blue-400/10 border-blue-400/20';
-      case 'PRODUTIVO': return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
-      case 'OTIMIZADO': return 'text-indigo-400 bg-indigo-400/10 border-indigo-400/20';
-      case 'LIMITE': return 'text-orange-400 bg-orange-400/10 border-orange-400/20';
-      default: return 'text-slate-400 bg-slate-400/10 border-slate-400/20';
-    }
-  };
-
-  const handleSortPlan = () => {
-    setWeeklyPlan(prev => sortExercisesSmartly(prev));
-  };
-
-  const handleSortDay = (day: string) => {
-    setWorkouts(prev => ({
-        ...prev,
-        [day]: sortExercisesSmartly(prev[day])
-    }));
-  };
-
   return (
-    <div className={`min-h-screen pb-24 md:pb-20 transition-colors duration-500 ${isDeloadActive ? 'bg-slate-950' : 'bg-slate-950'}`}>
-      <header className={`backdrop-blur-md border-b sticky top-0 z-50 transition-colors duration-300 ${isDeloadActive ? 'bg-emerald-950/40 border-emerald-900/50' : 'bg-slate-900/80 border-slate-800'}`}>
+    <div className="min-h-screen pb-24 bg-slate-950 text-slate-200">
+      <header className="backdrop-blur-md border-b sticky top-0 z-50 bg-slate-900/80 border-slate-800">
         <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col lg:flex-row justify-between items-center gap-3">
           <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <div className={`${isDeloadActive ? 'bg-emerald-600 shadow-emerald-600/30' : 'bg-indigo-600 shadow-indigo-600/20'} p-1.5 rounded-lg shadow-lg transition-colors`}>
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-              </div>
-              <h1 className={`text-lg md:text-xl font-black bg-clip-text text-transparent bg-gradient-to-r ${isDeloadActive ? 'from-emerald-400 to-teal-500' : 'from-indigo-400 to-purple-500'} tracking-tighter uppercase transition-all`}>HYPERVOLUME</h1>
-            </div>
-            <div className="h-6 w-px bg-slate-800 hidden lg:block"></div>
-
+            <h1 className="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500 tracking-tighter uppercase">HYPERVOLUME</h1>
             <div className="flex items-center gap-4 bg-slate-800/30 px-4 py-2 rounded-2xl border border-slate-700/50">
-              <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${isDeloadActive ? 'from-emerald-600 to-teal-600' : 'from-indigo-600 to-purple-600'} flex items-center justify-center text-xs font-black shadow-lg transition-all`}>
-                {userName.charAt(0).toUpperCase()}
-              </div>
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-xs font-black">{userName.charAt(0).toUpperCase()}</div>
               <div className="flex flex-col">
-                <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-slate-200 tracking-tight">{userName}</span>
-                    <span className={`text-[10px] font-black ${isDeloadActive ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'} px-2 py-0.5 rounded-md border uppercase tracking-tighter transition-all`}>PI: {globalStrength.score}</span>
-                </div>
-                <span className={`text-[9px] font-black ${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'} uppercase tracking-widest transition-all`}>{globalStrength.fullLevel}</span>
+                <span className="text-xs font-black">{userName}</span>
+                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">{globalStrength.fullLevel}</span>
               </div>
-              <button 
-                onClick={() => setShowSettings(true)} 
-                className={`w-8 h-8 flex items-center justify-center hover:bg-slate-700 rounded-lg transition-all text-slate-500 ${isDeloadActive ? 'hover:text-emerald-400' : 'hover:text-indigo-400'} active:scale-90`}
-              >
-                <svg className="w-5 h-5 overflow-visible" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              </button>
+              <button onClick={() => setShowSettings(true)} className="w-8 h-8 flex items-center justify-center hover:bg-slate-700 rounded-lg text-slate-500"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg></button>
             </div>
           </div>
-          <nav className="flex bg-slate-800/50 p-1 rounded-xl overflow-x-auto no-scrollbar">
+          <nav className="flex bg-slate-800/50 p-1 rounded-xl">
             {[
               { id: 'strength', label: 'Força', icon: '🦾' },
-              { id: 'periodization', label: 'Estratégia', icon: '📖' },
-              { id: 'plan', label: 'Plano', icon: '📐' },
-              { id: 'workouts', label: 'Treinos', icon: '🏋️' },
-              { id: 'analysis', label: 'Análise', icon: '📊' },
-              { id: 'history', label: 'Histórico', icon: '🗓️' },
+              { id: 'plan', label: 'Plano', icon: '📐' }
             ].map(tab => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === tab.id ? (isDeloadActive ? 'bg-emerald-600 shadow-emerald-600/30' : 'bg-slate-700') + ' text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}>
+              <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`px-6 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${activeTab === tab.id ? 'bg-slate-700 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}>
                 <span>{tab.icon}</span> {tab.label}
               </button>
             ))}
@@ -869,628 +162,195 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6 md:py-10">
-        {activeTab === 'analysis' && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className={`flex flex-col md:flex-row justify-between items-center bg-slate-900 p-6 rounded-3xl border shadow-xl gap-4 transition-colors ${isDeloadActive ? 'border-emerald-500/30' : 'border-slate-800'}`}>
-                  <div>
-                    <div className="flex items-center gap-3">
-                        <h2 className="text-xl font-black uppercase tracking-tight">Dashboard de Performance</h2>
-                        <span className={`text-[10px] font-black px-2 py-0.5 rounded border uppercase tracking-widest transition-all ${isDeloadActive ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'}`}>Motor Reativo v2.0</span>
-                    </div>
-                  </div>
-                  <div className="flex bg-slate-800 p-1.5 rounded-2xl border border-slate-700">
-                      <button 
-                        onClick={() => setAnalysisView('realtime')}
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisView === 'realtime' ? (isDeloadActive ? 'bg-emerald-600' : 'bg-indigo-600') + ' text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-                      >
-                        Tempo Real
-                      </button>
-                      <button 
-                        onClick={() => setAnalysisView('statistics')}
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisView === 'statistics' ? (isDeloadActive ? 'bg-emerald-600' : 'bg-indigo-600') + ' text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-                      >
-                        Estatísticas
-                      </button>
-                      <button 
-                        onClick={() => setAnalysisView('ia')}
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisView === 'ia' ? (isDeloadActive ? 'bg-emerald-600' : 'bg-indigo-600') + ' text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-                      >
-                        Consultoria IA
-                      </button>
+      <main className="max-w-7xl mx-auto px-4 py-10">
+        {activeTab === 'strength' && (
+          <div className="space-y-8 animate-in fade-in duration-500">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              <div className="lg:col-span-3 bg-slate-900 border border-slate-800 rounded-[2.5rem] p-10 md:p-16 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 blur-[100px] rounded-full bg-indigo-600/5"></div>
+                <div className="relative z-10">
+                  <span className="text-indigo-400 font-black uppercase text-xs tracking-[0.4em] mb-4 block">Power Matrix</span>
+                  <h2 className="text-4xl md:text-6xl font-black uppercase text-white mb-6 tracking-tighter">Teste de Força</h2>
+                  <p className="text-slate-400 text-lg">Calcule seu 1RM e monitore sua evolução nos levantamentos básicos.</p>
+                </div>
+              </div>
+              <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 flex flex-col items-center justify-center text-center">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Status de Atleta</span>
+                <div className="relative mb-4">
+                  <svg viewBox="0 0 100 100" className="w-24 h-24 transform -rotate-90">
+                    <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-800" />
+                    <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-indigo-500" strokeDasharray="282.7" strokeDashoffset={282.7 - (282.7 * globalStrength.score) / 100} strokeLinecap="round" />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-2xl font-black text-white leading-none">{globalStrength.score}</span>
                   </div>
                 </div>
-
-                {analysisView === 'ia' ? (
-                  <AICoach history={workoutHistory} plan={weeklyPlan} phase={activePhase} strengthProfiles={strengthProfiles} userName={userName} />
-                ) : analysisView === 'realtime' ? (
-                  <div className="space-y-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl flex flex-col items-center justify-center text-center space-y-4">
-                            <div className="relative w-32 h-32 flex items-center justify-center">
-                                <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90 overflow-visible">
-                                    <circle cx="50" cy="50" r="42" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-800" />
-                                    <circle cx="50" cy="50" r="42" stroke="currentColor" strokeWidth="8" fill="transparent" className={isDeloadActive ? "text-emerald-500" : "text-indigo-500"} strokeDasharray="263.9" strokeDashoffset={263.9 - (263.9 * (analysisData?.recoveryScore || 0)) / 100} strokeLinecap="round" />
-                                </svg>
-                                <span className="absolute text-3xl font-black">{analysisData?.recoveryScore || 0}%</span>
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-bold">Resiliência Metabólica</h3>
-                                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Prontidão Neuromuscular</p>
-                            </div>
-                        </div>
-                        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl flex flex-col justify-between overflow-y-auto max-h-[400px] no-scrollbar">
-                            <h4 className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mb-4 sticky top-0 bg-slate-900 pb-2 z-10">Volume Adaptativo</h4>
-                            <div className="space-y-4">
-                                {(showSecondary ? MUSCLE_SORT_ORDER : MUSCULOS_GRANDES).map(m => {
-                                    const currentVol = analysisData?.muscleTrends[m]?.[analysisData.muscleTrends[m].length - 1] || 0;
-                                    const status = getVolumeLevelData(m, currentVol, globalStrength.score);
-                                    return (
-                                        <div key={m} className="space-y-1">
-                                            <div className="flex justify-between text-[10px] font-bold">
-                                                <span className="text-slate-300">{m}</span>
-                                                <span className={status.color}>{status.label} ({currentVol.toFixed(1)}S)</span>
-                                            </div>
-                                            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                                                <div className={`${status.level === 5 ? 'bg-red-500' : (isDeloadActive ? 'bg-emerald-500' : 'bg-indigo-500')} h-full transition-all duration-1000`} style={{ width: `${Math.min(100, (currentVol / (24 * (0.6 + globalStrength.score/100))) * 100)}%` }}></div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
-                            <h4 className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mb-4">Risk Matrix</h4>
-                            <div className="space-y-3">
-                                {isDeloadActive ? (
-                                    <div className="flex gap-3 bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl">
-                                        <span className="text-emerald-400">🛡️</span>
-                                        <p className="text-xs text-emerald-100 font-bold leading-tight">MÓDULO DE RECUPERAÇÃO ATIVO: Riscos de fadiga suspensos. Foco em restauração.</p>
-                                    </div>
-                                ) : (
-                                    analysisData?.warnings.length === 0 ? (
-                                        <p className="text-slate-500 text-sm italic py-4">Nenhum risco detectado. Ótima recuperação!</p>
-                                    ) : (
-                                        analysisData?.warnings.map((w, i) => (
-                                            <div key={i} className="flex gap-3 bg-red-500/10 border-red-500/20 p-3 rounded-xl">
-                                                <span className="text-red-400">⚠️</span>
-                                                <p className="text-xs text-red-100 font-medium leading-tight">{w}</p>
-                                            </div>
-                                        ))
-                                    )
-                                )}
-                                {!isDeloadActive && Object.entries(recuperationRisks).map(([day, muscles]) => (
-                                    <div key={day} className="flex gap-3 bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-xl">
-                                        <span className="text-yellow-400">⏳</span>
-                                        <p className="text-xs text-yellow-100 font-medium leading-tight">
-                                            Conflito de descanso em <strong>{day}</strong>: {(muscles as string[]).join(', ')}.
-                                        </p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                    <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl">
-                        <div className="flex justify-between items-center mb-8">
-                           <h3 className="text-xl font-black uppercase tracking-tight">Workload Global (Tonelagem)</h3>
-                           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Toneladas Movidas / Músculo</span>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                            {(showSecondary ? MUSCLE_SORT_ORDER : MUSCULOS_GRANDES).map(m => {
-                                const data = analysisData?.workloadTrends[m] || [];
-                                const maxVal = Math.max(...data, 1);
-                                const currentWorkload = data[data.length - 1] || 0;
-                                return (
-                                    <div key={m} className="bg-slate-950/50 p-4 rounded-2xl border border-slate-800/50">
-                                        <div className="flex justify-between items-center mb-4">
-                                            <div className="flex items-center gap-2">
-                                                <span>{getMuscleEmoji(m)}</span>
-                                                <span className="text-[10px] font-black text-slate-400 uppercase">{getShortMuscleName(m)}</span>
-                                            </div>
-                                            <span className="text-[10px] font-black text-emerald-400">{(currentWorkload / 1000).toFixed(1)}t</span>
-                                        </div>
-                                        <div className="flex items-end gap-1.5 h-16">
-                                            {data.map((v, idx) => (
-                                                <div key={idx} className={`${isDeloadActive ? 'bg-emerald-500/40 border-emerald-400' : 'bg-indigo-500/40 border-indigo-400'} flex-1 border-t-2 rounded-t-sm transition-all`} style={{ height: `${(v / maxVal) * 100}%` }}></div>
-                                            ))}
-                                            {data.length === 0 && <div className="text-slate-800 text-[10px] italic">Sem dados</div>}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                  </div>
-                ) : (
-                  <StatisticsDashboard history={workoutHistory} />
-                )}
+                <h4 className="text-xl font-black uppercase text-indigo-400">{globalStrength.fullLevel}</h4>
+              </div>
             </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-8 space-y-6">
+                <h3 className="text-lg font-black uppercase text-white">Calculadora</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest block mb-2">Exercício</label>
+                    <select value={strengthInputs.exercise} onChange={e => setStrengthInputs({...strengthInputs, exercise: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white font-bold outline-none">
+                      <option>Supino</option><option>Agachamento</option><option>Levantamento Terra</option><option>Remada Curvada</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest block mb-2">Carga (kg)</label>
+                    <input type="number" value={strengthInputs.load || ''} onChange={e => setStrengthInputs({...strengthInputs, load: parseFloat(e.target.value) || 0})} className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white font-bold outline-none" placeholder="0" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest block mb-2">Reps</label>
+                    <input type="number" value={strengthInputs.reps || ''} onChange={e => setStrengthInputs({...strengthInputs, reps: parseInt(e.target.value) || 0})} className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white font-bold outline-none" placeholder="0" />
+                  </div>
+                  <button onClick={saveStrengthRecord} className="w-full py-5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase text-xs tracking-widest shadow-xl transition-all">Salvar Recorde</button>
+                </div>
+              </div>
+
+              <div className="lg:col-span-2 space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-10 flex flex-col items-center justify-center text-center">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Estimativa de 1RM</span>
+                    <span className="text-6xl font-black tracking-tighter text-indigo-400">{strengthResult.oneRM.toFixed(1)}<span className="text-2xl text-slate-600 ml-1">kg</span></span>
+                  </div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-10 flex flex-col items-center justify-center text-center">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Classificação</span>
+                    <span className={`text-2xl font-black px-6 py-3 rounded-2xl ${strengthResult.bg} ${strengthResult.color}`}>{strengthResult.level}</span>
+                  </div>
+                </div>
+                <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-8">
+                  <h4 className="text-sm font-black text-white uppercase mb-6 tracking-widest">Banco de Força</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {['Supino', 'Agachamento', 'Levantamento Terra', 'Remada Curvada'].map(ex => (
+                      <div key={ex} className="bg-slate-950/50 p-4 rounded-2xl border border-slate-800 text-center">
+                        <span className="text-[8px] text-slate-500 font-black uppercase block mb-1">{ex}</span>
+                        <span className="text-lg font-black text-indigo-400">{strengthProfiles[ex]?.toFixed(1) || '--'}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {activeTab === 'plan' && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <section className={`bg-slate-900 border rounded-2xl overflow-hidden shadow-2xl transition-colors ${isDeloadActive ? 'border-emerald-500/30' : 'border-slate-800'}`}>
-              <div className="p-5 md:p-8 border-b border-slate-800 flex flex-wrap justify-between items-center gap-4">
+          <div className="space-y-6 animate-in fade-in duration-500">
+            <section className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+              <div className="p-8 border-b border-slate-800 flex justify-between items-center gap-4">
                 <div>
-                  <h2 className="text-lg md:text-2xl font-black">Meta Semanal</h2>
-                  <p className="text-slate-400 text-xs md:text-sm">Volume alvo por grupo muscular, organizado por categoria.</p>
+                  <h2 className="text-2xl font-black">Volume Semanal Alvo</h2>
+                  <p className="text-slate-400 text-sm">Organize as séries para atingir o volume adaptativo.</p>
                 </div>
-                <div className="flex gap-4">
-                  <button onClick={handleSortPlan} className={`bg-slate-800 hover:bg-slate-700 px-6 py-3 rounded-xl font-bold flex items-center gap-2 border transition-all ${isDeloadActive ? 'text-emerald-400 border-emerald-500/20' : 'text-indigo-400 border-indigo-500/20'}`}>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"/></svg>
-                    Organizar Tabela
-                  </button>
-                  <button onClick={() => { setTargetDay(null); setShowSelector(true); }} className={`px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-xl transition-all ${isDeloadActive ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20' : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/20'} text-white`}>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-                    Adicionar Exercício
-                  </button>
-                </div>
+                <button onClick={() => { setTargetDay(null); setShowSelector(true); }} className="bg-indigo-600 hover:bg-indigo-500 px-6 py-3 rounded-xl font-bold flex items-center gap-2 text-white shadow-xl transition-all">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                  Adicionar Exercício
+                </button>
               </div>
               
-              <div className="relative w-full overflow-x-auto scrollbar-thin">
-                <table className="w-full text-left border-collapse border-spacing-0">
-                  <thead className="bg-slate-900 text-[10px] uppercase font-black text-slate-500 sticky top-0 z-40">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-slate-950 text-[10px] uppercase font-black text-slate-500">
                     <tr>
-                      <th className="p-4 w-64 bg-slate-950 sticky left-0 z-50 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50">Exercício</th>
-                      <th className="p-4 w-20 text-center sticky left-64 z-50 bg-slate-950 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50">Séries</th>
-                      {visibleMuscles.map(m => {
-                        const isRelevantToFocusedEx = focusedPlanExerciseId ? (focusedPlanExerciseData?.muscles.some(mu => mu.name === m) ?? false) : false;
-                        const isPrimary = focusedPlanExerciseId ? (focusedPlanExerciseData?.muscles.some(mu => mu.name === m && mu.type === 'principal') ?? false) : false;
-                        
-                        return (
-                          <th key={m} className={`p-4 w-24 text-center min-w-[100px] transition-all duration-300 ${focusedPlanExerciseId ? (isRelevantToFocusedEx ? (isPrimary ? (isDeloadActive ? 'text-emerald-400 bg-emerald-500/10' : 'text-indigo-400 bg-indigo-500/10') : 'text-purple-400 bg-purple-500/10') : 'opacity-20 grayscale') : ''}`}>
-                            {getShortMuscleName(m)}
-                          </th>
-                        );
-                      })}
-                      <th className="p-4 w-12 sticky right-0 bg-slate-900 text-center cursor-pointer hover:bg-slate-800 transition-colors" onClick={() => setShowSecondary(!showSecondary)}>{showSecondary ? '[-]' : '[+]'}</th>
+                      <th className="p-4 w-64 sticky left-0 bg-slate-950 border-r border-slate-800">Exercício</th>
+                      <th className="p-4 w-20 text-center border-r border-slate-800">Séries</th>
+                      {visibleMuscles.map(m => (
+                        <th key={m} className={`p-4 text-center min-w-[90px] ${focusedPlanExerciseId && focusedPlanExerciseData?.muscles.some(mu => mu.name === m) ? 'text-indigo-400 bg-indigo-500/5' : ''}`}>
+                          {getShortMuscleName(m)}
+                        </th>
+                      ))}
+                      <th className="p-4 w-12 text-center cursor-pointer hover:bg-slate-800" onClick={() => setShowSecondary(!showSecondary)}>{showSecondary ? '[-]' : '[+]'}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/30">
-                    {weeklyPlan.length === 0 ? (
-                      <tr><td colSpan={visibleMuscles.length + 3} className="p-20 text-center text-slate-500 italic">Comece adicionando exercícios.</td></tr>
-                    ) : (
-                      (Object.entries(groupedPlan) as [string, PlanItem[]][]).map(([category, items]) => {
-                        if (items.length === 0) return null;
-                        const isCollapsed = collapsedCategories.includes(category);
-                        const categorySeries = items.reduce((acc, item) => acc + (item.series || 0), 0);
-
-                        return (
-                          <React.Fragment key={category}>
-                            <tr 
-                              className="group bg-slate-950 cursor-pointer hover:bg-slate-900 transition-colors border-y border-slate-800/50"
-                              onClick={() => toggleCategory(category)}
-                            >
-                              <td className={`p-4 sticky left-0 bg-slate-950 group-hover:bg-slate-900 z-30 font-black text-xs flex items-center gap-3 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors ${isDeloadActive ? 'text-emerald-300' : 'text-indigo-300'}`}>
-                                <svg className={`w-4 h-4 transition-transform ${isCollapsed ? '' : 'rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7"/></svg>
-                                <span>{category.toUpperCase()}</span>
-                                {isCollapsed && (
-                                  <span className={`ml-2 text-[10px] px-2 py-0.5 rounded-md ${isDeloadActive ? 'bg-emerald-900/50 text-emerald-400' : 'bg-indigo-900/50 text-indigo-400'}`}>
-                                    {categorySeries}S
-                                  </span>
-                                )}
-                              </td>
-                              <td className={`p-4 text-center font-black text-xs sticky left-64 bg-slate-950 group-hover:bg-slate-900 z-30 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors ${isDeloadActive ? 'text-emerald-400/60' : 'text-indigo-400/60'}`}>
-                                {!isCollapsed && `${categorySeries}S`}
-                              </td>
-                              <td colSpan={visibleMuscles.length + 1} className="p-4 text-[10px] text-slate-600 font-bold uppercase tracking-widest italic bg-slate-950 group-hover:bg-slate-900 transition-colors">
-                                {items.length} {items.length === 1 ? 'exercício' : 'exercícios'} neste grupo
-                              </td>
-                            </tr>
-                            {!isCollapsed && items.map(item => {
-                              const ex = PREDEFINED_EXERCISES.find(e => e.name === item.name);
-                              const isExpanded = expandedExerciseId === item.id;
-                              const isRowFocused = focusedPlanExerciseId === item.id;
-                              
-                              return (
-                                <React.Fragment key={item.id}>
-                                  <tr className={`group transition-all hover:bg-slate-800/30 ${isExpanded ? 'bg-slate-800/40' : 'bg-slate-900'} ${focusedPlanExerciseId && !isRowFocused ? 'opacity-30 grayscale' : ''}`} onClick={() => toggleExpandExercise(item.id)}>
-                                    <td className={`p-3 pl-8 w-64 font-bold text-sm sticky left-0 z-30 flex items-center gap-2 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors bg-slate-950 group-hover:bg-slate-900`}>
-                                      <div className={`w-1 h-4 rounded-full flex-shrink-0 transition-colors ${isRowFocused ? (isDeloadActive ? 'bg-emerald-400' : 'bg-indigo-400') : (isDeloadActive ? 'bg-emerald-500/20' : 'bg-indigo-500/20')}`}></div>
-                                      <span className="truncate flex-1 min-w-0 cursor-pointer">{item.name}</span>
-                                    </td>
-                                    <td className={`p-2 w-20 sticky left-64 z-30 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors bg-slate-950 group-hover:bg-slate-900`} onClick={(e) => e.stopPropagation()}>
-                                      <input 
-                                        type="number" 
-                                        value={item.series || ''} 
-                                        onFocus={(e) => { e.target.select(); setFocusedPlanExerciseId(item.id); }} 
-                                        onBlur={() => setFocusedPlanExerciseId(null)}
-                                        onChange={e => updateSeries(item.id, e.target.value === '' ? 0 : parseInt(e.target.value))} 
-                                        className={`w-full bg-slate-800/50 border rounded-lg p-1.5 text-center font-black outline-none transition-all ${isRowFocused ? (isDeloadActive ? 'border-emerald-500 text-emerald-300 ring-2 ring-emerald-500/20' : 'border-indigo-500 text-indigo-300 ring-2 ring-indigo-500/20') : (isDeloadActive ? 'border-slate-700/30 text-emerald-400' : 'border-slate-700/30 text-indigo-400')}`} 
-                                      />
-                                    </td>
-                                    {visibleMuscles.map(m => {
-                                      const muscleData = ex?.muscles.find(mu => mu.name === m);
-                                      const individualVolume = (item.series || 0) * (muscleData?.contribution || 0);
-                                      const val = muscleData ? individualVolume.toFixed(1) : '-';
-                                      
-                                      const isCellRelevantToFocusedEx = isRowFocused && muscleData;
-                                      const isPrimaryInCell = muscleData?.type === 'principal';
-                                      
-                                      return (
-                                        <td key={m} className={`p-2 text-center text-xs relative transition-all duration-300 ${val !== '-' ? 'text-slate-100 font-bold' : 'text-slate-700 opacity-20'} ${isCellRelevantToFocusedEx ? (isPrimaryInCell ? (isDeloadActive ? 'bg-emerald-500/20 text-emerald-200 scale-110 shadow-lg shadow-emerald-500/10' : 'bg-indigo-500/20 text-indigo-200 scale-110 shadow-lg shadow-indigo-500/10') : 'bg-purple-500/10 text-purple-300 scale-105') : focusedPlanExerciseId && isRowFocused ? 'opacity-10 scale-95' : ''}`}>
-                                          <span className="relative z-10">{val}</span>
-                                          {isCellRelevantToFocusedEx && <div className={`absolute inset-0 border-x ${isPrimaryInCell ? (isDeloadActive ? 'border-emerald-500/30' : 'border-indigo-500/30') : 'border-purple-500/20'}`}></div>}
-                                        </td>
-                                      );
-                                    })}
-                                    <td className={`p-4 sticky right-0 text-center transition-colors bg-slate-950 group-hover:bg-slate-900`} onClick={(e) => e.stopPropagation()}>
-                                      <button onClick={() => removeFromPlan(item.id)} className="text-slate-700 hover:text-red-500 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
-                                    </td>
-                                  </tr>
-                                  {isExpanded && ex && (
-                                    <tr className={`bg-slate-900/60 border-l-4 transition-colors ${isDeloadActive ? 'border-emerald-500' : 'border-indigo-500'}`}>
-                                      <td colSpan={visibleMuscles.length + 3} className="p-8">
-                                        <div className="max-w-4xl space-y-6 animate-in fade-in slide-in-from-top-2">
-                                          <div className="flex items-center gap-3">
-                                            <span className={`text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full border transition-all ${isDeloadActive ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20'}`}>Matriz de Contribuição: {ex.name}</span>
-                                            <div className="h-px bg-slate-800 flex-1"></div>
-                                          </div>
-                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            {ex.muscles.sort((a,b) => b.contribution - a.contribution).map((m, idx) => (
-                                              <div key={idx} className={`p-5 rounded-3xl border transition-all ${m.type === 'principal' ? (isDeloadActive ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-indigo-500/5 border-indigo-500/20') : 'bg-slate-800/30 border-slate-700/50'}`}>
-                                                <div className="flex justify-between items-start mb-3">
-                                                  <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-xl">
-                                                      {getMuscleEmoji(m.name)}
-                                                    </div>
-                                                    <div>
-                                                      <h5 className="font-black text-sm text-white">{m.name}</h5>
-                                                      <span className={`text-[8px] font-black uppercase tracking-widest ${m.type === 'principal' ? (isDeloadActive ? 'text-emerald-400' : 'text-indigo-400') : 'text-slate-500'}`}>{m.type}</span>
-                                                    </div>
-                                                  </div>
-                                                  <div className="text-right">
-                                                    <span className="text-lg font-black text-white">{Math.round(m.contribution * 100)}%</span>
-                                                    <p className="text-[8px] text-slate-600 font-bold uppercase">Contribuição</p>
-                                                  </div>
-                                                </div>
-                                                {m.importance && (
-                                                  <p className="text-xs text-slate-400 font-medium leading-relaxed italic border-t border-slate-700/30 pt-3 mt-3">
-                                                    {m.importance}
-                                                  </p>
-                                                )}
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  )}
-                                </React.Fragment>
-                              );
-                            })}
-                          </React.Fragment>
-                        );
-                      })
-                    )}
+                  <tbody className="divide-y divide-slate-800/50">
+                    {Object.entries(groupedPlan).map(([category, items]) => {
+                      if (items.length === 0) return null;
+                      return (
+                        <React.Fragment key={category}>
+                          <tr className="bg-slate-950/50">
+                            <td colSpan={visibleMuscles.length + 3} className="p-3 pl-4 text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">{category}</td>
+                          </tr>
+                          {items.map(item => {
+                            const ex = PREDEFINED_EXERCISES.find(e => e.name === item.name);
+                            return (
+                              <tr key={item.id} className={`hover:bg-slate-800/30 transition-colors ${focusedPlanExerciseId === item.id ? 'bg-indigo-500/5' : ''}`}>
+                                <td className="p-4 font-bold text-sm border-r border-slate-800/50 sticky left-0 bg-slate-900">{item.name}</td>
+                                <td className="p-2 border-r border-slate-800/50">
+                                  <input type="number" value={item.series || ''} onFocus={() => setFocusedPlanExerciseId(item.id)} onBlur={() => setFocusedPlanExerciseId(null)} onChange={e => updateSeries(item.id, parseInt(e.target.value) || 0)} className="w-full bg-slate-800/50 border border-slate-700 rounded-lg p-1 text-center font-black outline-none focus:border-indigo-500" />
+                                </td>
+                                {visibleMuscles.map(m => {
+                                  const mu = ex?.muscles.find(mu => mu.name === m);
+                                  const val = mu ? ((item.series || 0) * mu.contribution).toFixed(1) : '-';
+                                  return <td key={m} className={`p-2 text-center text-xs font-bold ${val === '-' ? 'text-slate-700' : 'text-slate-300'}`}>{val}</td>;
+                                })}
+                                <td className="p-4 text-center">
+                                  <button onClick={() => removeFromPlan(item.id)} className="text-slate-600 hover:text-red-500"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
-                  <tfoot className={`bg-slate-900 font-black border-t-2 sticky bottom-0 z-40 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] transition-colors ${isDeloadActive ? 'border-emerald-500' : 'border-indigo-500'}`}>
+                  <tfoot className="bg-slate-950 font-black border-t-2 border-indigo-500 sticky bottom-0">
                     <tr>
-                      <td className="p-4 w-64 sticky left-0 bg-slate-950 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 text-xs">TOTAIS</td>
-                      <td className={`p-4 w-20 text-center text-lg sticky left-64 bg-slate-950 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors ${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'}`}>{weeklyPlan.reduce((a, b) => a + (b.series || 0), 0)}</td>
-                      {visibleMuscles.map(m => (
-                        <td key={m} className={`p-4 text-center tabular-nums transition-colors ${isDeloadActive ? 'text-emerald-300' : 'text-indigo-300'}`}>{muscleTotals[m].toFixed(1)}</td>
-                      ))}
-                      <td className="p-4 sticky right-0 bg-slate-900"></td>
-                    </tr>
-                    <tr className="border-t border-slate-800/50 bg-slate-950">
-                      <td className="p-4 w-64 sticky left-0 bg-slate-950 text-[10px] text-slate-500 uppercase font-black shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 z-40">SAÚDE DO PLANO</td>
-                      <td className="p-4 w-20 sticky left-64 bg-slate-950 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50"></td>
+                      <td className="p-4 text-xs">TOTAIS SEMANAIS</td>
+                      <td className="p-4 text-center text-indigo-400">{weeklyPlan.reduce((a, b) => a + (b.series || 0), 0)}</td>
                       {visibleMuscles.map(m => {
-                        const { label, color, bg, icon } = getVolumeLevelData(m, muscleTotals[m], globalStrength.score);
+                        const { label, color, bg } = getVolumeLevelData(m, muscleTotals[m], globalStrength.score);
                         return (
-                          <td key={m} className="p-3 text-center uppercase bg-slate-950">
-                             <div className={`flex flex-col items-center gap-1 ${bg} ${color} p-2 rounded-xl border border-white/5 shadow-inner transition-all duration-300`}>
-                                <span className="text-xs leading-none">{icon}</span>
-                                <span className="text-[8px] font-black tracking-tighter whitespace-nowrap">{label}</span>
-                             </div>
+                          <td key={m} className="p-2 text-center">
+                            <div className={`flex flex-col p-1 rounded-lg border border-white/5 ${bg} ${color}`}>
+                              <span className="text-[9px]">{muscleTotals[m].toFixed(1)}</span>
+                              <span className="text-[7px] tracking-tighter uppercase">{label}</span>
+                            </div>
                           </td>
                         );
                       })}
-                      <td className="p-4 sticky right-0 bg-slate-900"></td>
+                      <td></td>
                     </tr>
                   </tfoot>
                 </table>
               </div>
             </section>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-8">
-              <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-3xl">
-                <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4 border-b border-slate-800 pb-2">Status de Volume Base</h4>
-                <div className="space-y-4">
-                  <div className="flex gap-3 items-start">
-                    <span className="text-xl">📉</span>
-                    <div>
-                      <span className="text-[10px] font-black text-blue-400 uppercase">MANUTENÇÃO (MEV)</span>
-                      <p className="text-[10px] text-slate-500 font-medium leading-tight">Mínimo Efetivo. Mantém a massa magra atual, mas gera pouco estímulo para novas adaptações.</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-3 items-start">
-                    <span className="text-xl">🚀</span>
-                    <div>
-                      <span className="text-[10px] font-black text-emerald-400 uppercase">PRODUTIVO (MAV)</span>
-                      <p className="text-[10px] text-slate-500 font-medium leading-tight">Volume Adaptativo Médio. Zona ideal para hipertrofia contínua com boa recuperação.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-3xl">
-                <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4 border-b border-slate-800 pb-2">Alta Intensidade de Volume</h4>
-                <div className="space-y-4">
-                  <div className="flex gap-3 items-start">
-                    <span className="text-xl">💎</span>
-                    <div>
-                      <span className="text-[10px] font-black text-indigo-400 uppercase">OTIMIZADO (MRV Progressivo)</span>
-                      <p className="text-[10px] text-slate-500 font-medium leading-tight">Perto do limite recuperável. Recomendado para fases de pico de volume em atletas avançados.</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-3 items-start">
-                    <span className="text-xl">⚡</span>
-                    <div>
-                      <span className="text-[10px] font-black text-orange-400 uppercase">LIMITE (Overreaching)</span>
-                      <p className="text-[10px] text-slate-500 font-medium leading-tight">Volume de choque. Sustentável por pouco tempo. Requer semanas de deload após o uso.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-3xl">
-                <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4 border-b border-slate-800 pb-2">Zonas de Alerta</h4>
-                <div className="space-y-4">
-                  <div className="flex gap-3 items-start">
-                    <span className="text-xl">🛑</span>
-                    <div>
-                      <span className="text-[10px] font-black text-red-500 uppercase">OVERTRAINING</span>
-                      <p className="text-[10px] text-slate-500 font-medium leading-tight">Volume além da capacidade de síntese e recuperação. Risco iminente de lesão ou estagnação.</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-3 items-start">
-                    <span className="text-xl">⚪</span>
-                    <div>
-                      <span className="text-[10px] font-black text-slate-500 uppercase">SEM TREINO</span>
-                      <p className="text-[10px] text-slate-500 font-medium leading-tight">Nenhuma série direta ou indireta registrada para este grupo muscular no plano atual.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* --- DEMAIS ABAS MANTIDAS --- */}
-        {activeTab === 'strength' && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                 {/* ... conteúdo strength abreviado para caber na resposta, mas você deve manter o original ou copiar o bloco strength completo da resposta anterior se precisar ... */}
-                 {/* Vou colocar o bloco completo da Strength aqui para garantir que não quebre */}
-                 <div className={`lg:col-span-3 bg-slate-900 border rounded-[2.5rem] p-10 md:p-16 shadow-2xl relative overflow-hidden transition-colors ${isDeloadActive ? 'border-emerald-500/30' : 'border-slate-800'}`}>
-                     <div className={`absolute top-0 right-0 w-64 h-64 blur-[100px] rounded-full transition-colors ${isDeloadActive ? 'bg-emerald-600/5' : 'bg-indigo-600/5'}`}></div>
-                     <div className="max-w-3xl relative z-10">
-                     <span className={`${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'} font-black uppercase text-xs tracking-[0.4em] mb-4 block transition-colors`}>Power Matrix</span>
-                     <h2 className="text-4xl md:text-6xl font-black uppercase text-white mb-6 tracking-tighter leading-none">Teste de Força</h2>
-                     <p className="text-slate-400 text-lg md:text-xl font-medium leading-relaxed">Descubra seu 1RM estimado e salve para que o app sugira cargas em isolados.</p>
-                     </div>
-                 </div>
-                 <div className={`bg-slate-900 border rounded-[2.5rem] p-8 shadow-xl flex flex-col justify-center items-center text-center relative group overflow-hidden transition-colors ${isDeloadActive ? 'border-emerald-500/30' : 'border-slate-800'}`}>
-                     <div className={`absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity ${isDeloadActive ? 'from-emerald-600/5 to-teal-600/5' : 'from-indigo-600/5 to-purple-600/5'}`}></div>
-                     <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">Status de Atleta</span>
-                     <div className="relative mb-6">
-                         <svg viewBox="0 0 100 100" className="w-24 h-24 transform -rotate-90">
-                             <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-800" />
-                             <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="8" fill="transparent" className={isDeloadActive ? 'text-emerald-500' : 'text-indigo-500'} strokeDasharray="282.7" strokeDashoffset={282.7 - (282.7 * globalStrength.score) / 100} strokeLinecap="round" />
-                         </svg>
-                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                             <span className="text-2xl font-black text-white leading-none">{globalStrength.score}</span>
-                             <span className="text-[8px] font-bold text-slate-500">PTS</span>
-                         </div>
-                     </div>
-                     <div className="space-y-1">
-                         <h4 className={`text-xl font-black uppercase tracking-tighter transition-colors ${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'}`}>{globalStrength.fullLevel}</h4>
-                         <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">
-                             {globalStrength.count}/4 Levantamentos salvos
-                         </p>
-                     </div>
-                 </div>
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                 <div className="lg:col-span-1 bg-slate-900 border border-slate-800 rounded-[2rem] p-8 shadow-xl space-y-6">
-                    <h3 className="text-lg font-black uppercase tracking-tight text-white mb-4">Calculadora</h3>
-                    {/* ... Inputs de força ... */}
-                    <div className="space-y-2">
-                       <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Exercício Base</label>
-                       <select 
-                         value={strengthInputs.exercise}
-                         onChange={(e) => setStrengthInputs({...strengthInputs, exercise: e.target.value})}
-                         className={`w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white font-bold outline-none focus:ring-2 transition-all appearance-none ${isDeloadActive ? 'focus:ring-emerald-500' : 'focus:ring-indigo-500'}`}
-                       >
-                           <option>Supino</option>
-                           <option>Agachamento</option>
-                           <option>Levantamento Terra</option>
-                           <option>Remada Curvada</option>
-                       </select>
-                    </div>
-                    <div className="space-y-2">
-                       <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Peso Corporal (kg)</label>
-                       <input 
-                         type="number" 
-                         value={strengthInputs.bw || ''}
-                         onFocus={(e) => e.target.select()}
-                         onChange={(e) => setStrengthInputs({...strengthInputs, bw: parseFloat(e.target.value) || 0})}
-                         className={`w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white font-bold outline-none focus:ring-2 transition-all ${isDeloadActive ? 'focus:ring-emerald-500' : 'focus:ring-indigo-500'}`}
-                         placeholder="Ex: 80"
-                       />
-                    </div>
-                    <div className="space-y-2">
-                       <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Carga Utilizada (kg)</label>
-                       <input 
-                         type="number" 
-                         value={strengthInputs.load || ''}
-                         onFocus={(e) => e.target.select()}
-                         onChange={(e) => setStrengthInputs({...strengthInputs, load: parseFloat(e.target.value) || 0})}
-                         className={`w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white font-bold outline-none focus:ring-2 transition-all ${isDeloadActive ? 'focus:ring-emerald-500' : 'focus:ring-indigo-500'}`}
-                         placeholder="Carga total"
-                       />
-                    </div>
-                    <div className="space-y-2">
-                       <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Repetições Máximas</label>
-                       <input 
-                         type="number" 
-                         value={strengthInputs.reps || ''}
-                         onFocus={(e) => e.target.select()}
-                         onChange={(e) => setStrengthInputs({...strengthInputs, reps: parseInt(e.target.value) || 0})}
-                         className={`w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-white font-bold outline-none focus:ring-2 transition-all ${isDeloadActive ? 'focus:ring-emerald-500' : 'focus:ring-indigo-500'}`}
-                         placeholder="Ex: 8"
-                       />
-                    </div>
-                    <button 
-                      onClick={saveStrengthRecord}
-                      className={`w-full py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl transition-all ${isDeloadActive ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20' : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/20'} text-white`}
-                    >
-                      Salvar no Perfil de Força
-                    </button>
-                 </div>
-                 {/* ... Resto da aba Força ... */}
-                 <div className="lg:col-span-2 space-y-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                       <div className={`bg-slate-900 border rounded-[2rem] p-10 flex flex-col items-center justify-center text-center shadow-xl group transition-all duration-500 ${isDeloadActive ? 'hover:border-emerald-500/50 border-emerald-900/40' : 'border-slate-800 hover:border-indigo-500/50'}`}>
-                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Estimativa de 1RM</span>
-                          <span className={`text-6xl font-black tracking-tighter mb-2 tabular-nums transition-colors ${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'}`}>
-                             {strengthResult.oneRM.toFixed(1)}<span className="text-2xl text-slate-600 ml-1">kg</span>
-                          </span>
-                          <p className="text-xs text-slate-500 font-medium">Sua força teórica para 1 repetição.</p>
-                       </div>
-                       <div className={`bg-slate-900 border rounded-[2rem] p-10 flex flex-col items-center justify-center text-center shadow-xl group transition-all duration-500 ${isDeloadActive ? 'hover:border-emerald-500/50 border-emerald-900/40' : 'border-slate-800 hover:border-indigo-500/50'}`}>
-                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Nível de Força</span>
-                          <span className={`text-2xl font-black px-6 py-3 rounded-2xl mb-4 ${strengthResult.bg} ${strengthResult.color}`}>
-                             {strengthResult.level}
-                          </span>
-                          <div className="flex gap-1 items-center">
-                             <span className="text-xs font-bold text-slate-400">Ratio:</span>
-                             <span className="text-xs font-black text-white">{strengthResult.ratio.toFixed(2)}x BW</span>
-                          </div>
-                          <div className="mt-6 pt-4 border-t border-slate-800 w-full">
-                             <p className="text-[10px] text-slate-400 font-medium leading-relaxed italic">
-                               {strengthResult.prescription}
-                             </p>
-                          </div>
-                       </div>
-                    </div>
-                    <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-8 shadow-xl">
-                       <h4 className="text-sm font-black text-white uppercase mb-6 tracking-widest">Seu Banco de Força</h4>
-                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                          {['Supino', 'Agachamento', 'Levantamento Terra', 'Remada Curvada'].map(ex => (
-                             <div key={ex} className={`bg-slate-950/50 p-4 rounded-2xl border text-center transition-colors ${isDeloadActive ? 'border-emerald-500/20' : 'border-slate-800'}`}>
-                                <span className="text-[8px] text-slate-500 font-black uppercase block mb-1">{ex}</span>
-                                <span className={`text-lg font-black transition-colors ${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'}`}>{strengthProfiles[ex]?.toFixed(1) || '--'} <span className="text-[9px] text-slate-600">kg</span></span>
-                             </div>
-                          ))}
-                       </div>
-                       <p className="text-[9px] text-slate-600 font-bold uppercase mt-6 italic">* Estas valores são usados pelo Smart Load para sugerir pesos em outros exercícios.</p>
-                    </div>
-                 </div>
-              </div>
           </div>
         )}
       </main>
 
-      {/* Modais */}
-      <ExerciseSelectorModal 
-        isOpen={showSelector} 
-        onClose={() => setShowSelector(false)} 
-        onSelect={(name) => {
-          if (targetDay) addToDay(targetDay, name);
-          else addToPlan(name);
-        }} 
-        catalog={PREDEFINED_EXERCISES} 
-        activePhase={activePhase}
-        currentDayExercises={targetDay ? workouts[targetDay] || [] : []}
-        planItems={weeklyPlan}
-        isAddingToPlan={!targetDay}
-      />
-      <PlanImporterModal
-        isOpen={showImporter}
-        onClose={() => setShowImporter(false)}
-        onSelect={(name, series) => targetDay && addToDay(targetDay, name, series)}
-        planItems={weeklyPlan}
-        dayName={targetDay || ''}
-      />
-      <ReturnToTrainingModal
-        isOpen={showReturnModal}
-        onClose={() => setShowReturnModal(false)}
-        workoutHistory={workoutHistory}
-        onApply={handleApplyReturn}
-        strengthProfiles={strengthProfiles}
-        currentWorkouts={workouts}
-      />
-      <AchievementModal 
-        isOpen={!!achievement} 
-        onClose={() => setAchievement(null)} 
-        data={achievement}
-      />
+      {/* MODAIS */}
+      <ExerciseSelectorModal isOpen={showSelector} onClose={() => setShowSelector(false)} onSelect={addToPlan} catalog={PREDEFINED_EXERCISES} planItems={weeklyPlan} isAddingToPlan={true} />
+      
       {showSettings && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
-           {/* Settings Modal Content */}
-           <div className="bg-slate-900 border border-slate-700 w-full max-w-xl rounded-[2.5rem] p-10 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto no-scrollbar">
-               <h3 className="text-2xl font-black mb-8 uppercase tracking-tighter flex justify-between items-center">
-                  <span>Perfil do Atleta</span>
-                  <button onClick={() => setShowSettings(false)} className="text-slate-500 hover:text-white transition-colors">
-                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                  </button>
-               </h3>
-               
-               <div className="space-y-10">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                   <div>
-                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Nome de Guerra</label>
-                     <input type="text" value={userName} onChange={(e) => setUserName(e.target.value)} className={`w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 outline-none transition-all text-white font-bold ${isDeloadActive ? 'focus:ring-2 focus:ring-emerald-500' : 'focus:ring-2 focus:ring-indigo-500'}`} />
-                   </div>
-                   <div>
-                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Peso Corporal Atual (kg)</label>
-                     <input type="number" value={strengthInputs.bw || ''} onFocus={(e) => e.target.select()} onChange={(e) => setStrengthInputs(prev => ({ ...prev, bw: parseFloat(e.target.value) || 0 }))} className={`w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 outline-none transition-all text-white font-bold ${isDeloadActive ? 'focus:ring-2 focus:ring-emerald-500' : 'focus:ring-2 focus:ring-indigo-500'}`} />
-                   </div>
-                 </div>
-
-                 {/* NOVOS CAMPOS DE 1RM NO MODAL (Arredondados) */}
-                 <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-4">Seus Recordes (1RM)</label>
-                    <div className="grid grid-cols-2 gap-4">
-                       {['Supino', 'Agachamento', 'Levantamento Terra', 'Remada Curvada'].map(ex => (
-                          <div key={ex}>
-                             <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">{ex}</label>
-                             <input 
-                               type="number" 
-                               // AQUI ESTÁ A CORREÇÃO DO ARREDONDAMENTO:
-                               value={strengthProfiles[ex] ? Math.round(strengthProfiles[ex]) : ''} 
-                               onChange={(e) => setStrengthProfiles(prev => ({ ...prev, [ex]: parseFloat(e.target.value) || 0 }))}
-                               className="w-full bg-slate-800 border border-slate-700 rounded-2xl p-3 outline-none transition-all text-white font-bold focus:ring-2 focus:ring-indigo-500 text-sm"
-                             />
-                          </div>
-                       ))}
-                    </div>
-                 </div>
-
-                 <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-4">Gestão de Dados</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                       <button onClick={handleExportBackup} className="bg-slate-800 hover:bg-slate-700 border border-slate-700 p-4 rounded-2xl flex items-center justify-center gap-3 transition-all group">
-                          <span className="text-2xl group-hover:scale-110 transition-transform">📤</span>
-                          <span className="text-xs font-black uppercase text-slate-400 group-hover:text-white">Fazer Backup</span>
-                       </button>
-                       <button onClick={() => fileInputRef.current?.click()} className="bg-slate-800 hover:bg-slate-700 border border-slate-700 p-4 rounded-2xl flex items-center justify-center gap-3 transition-all group">
-                          <span className="text-2xl group-hover:scale-110 transition-transform">📥</span>
-                          <span className="text-xs font-black uppercase text-slate-400 group-hover:text-white">Restaurar Backup</span>
-                       </button>
-                       <input 
-                         type="file" 
-                         ref={fileInputRef} 
-                         style={{ display: 'none' }} 
-                         accept=".json" 
-                         onChange={handleImportBackup} 
-                       />
-                    </div>
-                 </div>
-               </div>
-               <button onClick={() => setShowSettings(false)} className="bg-indigo-600 text-white px-4 py-3 rounded-xl mt-8 w-full font-bold shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 transition-all">Salvar e Fechar</button>
-           </div>
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-[100]">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-xl rounded-[2.5rem] p-10 shadow-2xl">
+            <h3 className="text-2xl font-black mb-8 uppercase tracking-tighter flex justify-between">
+              <span>Perfil do Atleta</span>
+              <button onClick={() => setShowSettings(false)} className="text-slate-500 hover:text-white">✕</button>
+            </h3>
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">Nome</label>
+                  <input type="text" value={userName} onChange={e => setUserName(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 text-white font-bold outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">Peso (kg)</label>
+                  <input type="number" value={strengthInputs.bw} onChange={e => setStrengthInputs(prev => ({ ...prev, bw: parseFloat(e.target.value) || 0 }))} className="w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 text-white font-bold outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-800">
+                <button onClick={handleExportBackup} className="bg-slate-800 p-4 rounded-2xl text-[10px] font-black uppercase text-slate-400 hover:text-white transition-all">📤 Exportar Backup</button>
+                <button onClick={() => fileInputRef.current?.click()} className="bg-slate-800 p-4 rounded-2xl text-[10px] font-black uppercase text-slate-400 hover:text-white transition-all">📥 Importar Backup</button>
+                <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImportBackup} />
+              </div>
+            </div>
+            <button onClick={() => setShowSettings(false)} className="bg-indigo-600 text-white p-4 rounded-2xl mt-8 w-full font-black uppercase text-xs tracking-widest">Salvar e Fechar</button>
+          </div>
         </div>
       )}
     </div>
