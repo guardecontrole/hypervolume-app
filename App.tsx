@@ -1,40 +1,254 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { 
-  PlanItem, 
-  WorkoutSplit, 
-  WorkoutExercise, 
-  WorkoutLog, 
-  PeriodizationPhase, 
-  Exercise, 
-  WorkoutSet 
-} from './types';
-import { 
-  PREDEFINED_EXERCISES, 
-  DAYS_OF_WEEK, 
-  MUSCLE_SORT_ORDER, 
-  MUSCULOS_GRANDES, 
-  SECONDARY_MUSCLES, 
-  PERIODIZATION_PHASES, 
-  CATEGORY_ORDER 
-} from './constants';
-import { 
-  getVolumeLevelData, 
-  getMuscleEmoji, 
-  classifyExercise, 
-  calculateStrengthLevel, 
-  sortExercisesSmartly, 
-  checkRecuperationRisk, 
-  getShortMuscleName, 
-  analyzeTrends, 
-  calculateDetailedMuscleMetrics, 
-  calculateMuscleVolumeForLog, 
-  suggestSmartLoad, 
-  calculateGlobalStrengthLevel, 
-  calculate1RM, 
-  getExerciseCategory 
-} from './utils/helpers';
+import { PlanItem, WorkoutSplit, WorkoutExercise, WorkoutLog, WorkoutSet } from './types';
+import { PREDEFINED_EXERCISES, DAYS_OF_WEEK, PERIODIZATION_PHASES, CATEGORY_ORDER, MUSCLE_SORT_ORDER, SECONDARY_MUSCLES, MUSCULOS_GRANDES } from './constants';
+import { calculateStrengthLevel, calculateGlobalStrengthLevel, classifyExercise, sortExercisesSmartly, calculate1RM, getExerciseCategory, analyzeTrends, checkRecuperationRisk, getShortMuscleName, calculateDetailedMuscleMetrics, calculateMuscleVolumeForLog } from './utils/helpers';
+
+// COMPONENTS
 import { ExerciseSelectorModal } from './components/ExerciseSelectorModal';
 import { PlanImporterModal } from './components/PlanImporterModal';
+import { ReturnToTrainingModal } from './components/ReturnToTrainingModal';
+import { AchievementModal } from './components/AchievementModal';
+import { StatisticsDashboard } from './components/StatisticsDashboard';
+import { AICoach } from './components/AICoach';
+
+// NEW TABS & MODALS
+import { StrengthTab } from './components/tabs/StrengthTab';
+import { StrategyTab } from './components/tabs/StrategyTab';
+import { PlanTab } from './components/tabs/PlanTab';
+import { WorkoutsTab } from './components/tabs/WorkoutsTab';
+import { HistoryTab } from './components/tabs/HistoryTab';
+import { ProfileModal } from './components/modals/ProfileModal';
+
+const App: React.FC = () => {
+  const [isMounted, setIsMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState<'strength' | 'plan' | 'workouts' | 'analysis' | 'history' | 'periodization'>('strength');
+  const [weeklyPlan, setWeeklyPlan] = useState<PlanItem[]>([]);
+  const [workouts, setWorkouts] = useState<WorkoutSplit>({});
+  const [workoutHistory, setWorkoutHistory] = useState<WorkoutLog[]>([]);
+  const [activePhaseId, setActivePhaseId] = useState<string | null>(null);
+  const [currentWeek, setCurrentWeek] = useState<number>(1);
+  const [manualRir, setManualRir] = useState<number>(1);
+  const [manualProgression, setManualProgression] = useState<any>('mixed');
+  const [manualMethodology, setManualMethodology] = useState<string>('');
+  const [userName, setUserName] = useState<string>('Atleta');
+  const [strengthProfiles, setStrengthProfiles] = useState<Record<string, number>>({});
+  const [activeDays, setActiveDays] = useState<string[]>(DAYS_OF_WEEK.slice(0, 5));
+  const [isDeloadActive, setIsDeloadActive] = useState(false);
+  const [strengthInputs, setStrengthInputs] = useState({ exercise: 'Supino', bw: 80, load: 0, reps: 0 });
+  
+  // UI States
+  const [showSelector, setShowSelector] = useState(false);
+  const [showImporter, setShowImporter] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [logName, setLogName] = useState('');
+  const [targetDay, setTargetDay] = useState<string | null>(null);
+  const [saveButtonText, setSaveButtonText] = useState('💾 Salvar Semana');
+  
+  // Drag & SuperSet
+  const [draggedItem, setDraggedItem] = useState<{ exercise: WorkoutExercise, fromDay: string } | null>(null);
+  const [dragOverDay, setDragOverDay] = useState<string | null>(null);
+  const [superSetSelection, setSuperSetSelection] = useState<{ day: string, sourceId: number } | null>(null);
+  
+  // Analysis
+  const [analysisView, setAnalysisView] = useState<'realtime' | 'statistics' | 'ia'>('realtime');
+  const [achievement, setAchievement] = useState<any>(null);
+
+  useEffect(() => {
+    setIsMounted(true);
+    const savedPlan = localStorage.getItem('hv_plan'); if (savedPlan) setWeeklyPlan(JSON.parse(savedPlan));
+    const savedWorkouts = localStorage.getItem('hv_workouts'); if (savedWorkouts) setWorkouts(JSON.parse(savedWorkouts));
+    const savedHistory = localStorage.getItem('hv_workout_history'); if (savedHistory) setWorkoutHistory(JSON.parse(savedHistory));
+    const savedPhase = localStorage.getItem('hv_active_phase'); if (savedPhase && savedPhase !== "null") setActivePhaseId(savedPhase);
+    const savedWeek = localStorage.getItem('hv_current_week'); if (savedWeek) setCurrentWeek(parseInt(savedWeek));
+    const savedUser = localStorage.getItem('hv_user_name'); if (savedUser) setUserName(savedUser);
+    const savedProfiles = localStorage.getItem('hv_strength_profiles'); if (savedProfiles) setStrengthProfiles(JSON.parse(savedProfiles));
+    const savedBW = localStorage.getItem('hv_user_bw'); if (savedBW) setStrengthInputs(prev => ({ ...prev, bw: parseFloat(savedBW) }));
+    const savedManualRir = localStorage.getItem('hv_manual_rir'); if (savedManualRir) setManualRir(parseInt(savedManualRir));
+    const savedManualProg = localStorage.getItem('hv_manual_prog'); if (savedManualProg) setManualProgression(savedManualProg);
+    const savedManualMethod = localStorage.getItem('hv_manual_method'); if (savedManualMethod) setManualMethodology(savedManualMethod);
+    const savedActiveDays = localStorage.getItem('hv_active_days'); if (savedActiveDays) setActiveDays(JSON.parse(savedActiveDays));
+    const savedDeload = localStorage.getItem('hv_is_deload'); if (savedDeload) setIsDeloadActive(savedDeload === 'true');
+  }, []);
+
+  useEffect(() => {
+    if (!isMounted) return;
+    localStorage.setItem('hv_plan', JSON.stringify(weeklyPlan));
+    localStorage.setItem('hv_workouts', JSON.stringify(workouts));
+    localStorage.setItem('hv_workout_history', JSON.stringify(workoutHistory));
+    localStorage.setItem('hv_current_week', currentWeek.toString());
+    localStorage.setItem('hv_active_phase', activePhaseId || "null");
+    localStorage.setItem('hv_user_name', userName);
+    localStorage.setItem('hv_strength_profiles', JSON.stringify(strengthProfiles));
+    localStorage.setItem('hv_user_bw', strengthInputs.bw.toString());
+    localStorage.setItem('hv_manual_rir', manualRir.toString());
+    localStorage.setItem('hv_manual_prog', manualProgression);
+    localStorage.setItem('hv_manual_method', manualMethodology);
+    localStorage.setItem('hv_active_days', JSON.stringify(activeDays));
+    localStorage.setItem('hv_is_deload', isDeloadActive.toString());
+  }, [weeklyPlan, workouts, workoutHistory, activePhaseId, currentWeek, userName, strengthProfiles, strengthInputs.bw, manualRir, manualProgression, manualMethodology, activeDays, isDeloadActive, isMounted]);
+
+  const activePhase = useMemo(() => {
+    const basePhase = PERIODIZATION_PHASES.find(p => p.id === activePhaseId) || null;
+    if (basePhase?.id === 'f_manual') return { ...basePhase, rirTarget: manualRir, progressionRule: manualProgression, description: manualMethodology || basePhase.description };
+    return basePhase;
+  }, [activePhaseId, manualRir, manualProgression, manualMethodology]);
+
+  const globalStrength = useMemo(() => calculateGlobalStrengthLevel(strengthProfiles, strengthInputs.bw || 80), [strengthProfiles, strengthInputs.bw]);
+  const macrocycles = useMemo(() => {
+    const order = ['INÍCIO', 'FORÇA', 'REALIZAÇÃO', 'RESISTÊNCIA', 'HIPERTROFIA'];
+    const stages = Array.from(new Set(PERIODIZATION_PHASES.map(p => p.stage))).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    return stages.map(stage => ({ name: stage, phases: PERIODIZATION_PHASES.filter(p => p.stage === stage) }));
+  }, []);
+
+  // --- FUNÇÕES RESTAURADAS (ISSO QUE FALTAVA) ---
+  const toggleDay = (day: string) => setActiveDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
+  const addToPlan = (name: string) => setWeeklyPlan(prev => prev.find(p => p.name === name) ? prev : [...prev, { id: Date.now(), name, series: 0 }]);
+  
+  const addToDay = (day: string, name: string, series?: number) => {
+    const sCount = series || 3;
+    const initialSets: WorkoutSet[] = Array.from({ length: sCount }).map(() => ({ id: Math.random().toString(36).substr(2, 9), reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null }));
+    setWorkouts(prev => ({ ...prev, [day]: [...(prev[day] || []), { id: Date.now() + Math.random(), name, series: sCount, sets: initialSets, reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null }] }));
+  };
+
+  const updateWorkoutEx = (day: string, id: number, data: Partial<WorkoutExercise>) => setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => ex.id === id ? { ...ex, ...data } : ex)}));
+  const removeWorkoutEx = (day: string, id: number) => setWorkouts(prev => ({ ...prev, [day]: prev[day].filter(ex => ex.id !== id)}));
+  
+  const monitorPRs = (newLog: WorkoutLog) => {
+    const exercisesToCheck = ['Supino', 'Agachamento', 'Levantamento Terra', 'Remada Curvada'];
+    const bw = strengthInputs.bw || 80;
+    let updatedProfiles = { ...strengthProfiles };
+    let foundNewPR = false;
+    let achievementData = null;
+    const oldGlobal = calculateGlobalStrengthLevel(updatedProfiles, bw);
+
+    Object.values(newLog.split).flat().forEach((ex: WorkoutExercise) => {
+      const baseExName = exercisesToCheck.find(base => ex.name.includes(base));
+      if (baseExName) {
+        const currentPR = updatedProfiles[baseExName] || 0;
+        let best1RMInSesssion = 0;
+        if (ex.sets && ex.sets.length > 0) { ex.sets.forEach(set => { if (set.load && set.reps > 0) { const calc = calculate1RM(set.load, set.reps); if (calc > best1RMInSesssion) best1RMInSesssion = calc; } }); } else if (ex.load && ex.reps > 0) { best1RMInSesssion = calculate1RM(ex.load, ex.reps); }
+        if (best1RMInSesssion > currentPR + 0.1) { updatedProfiles[baseExName] = best1RMInSesssion; foundNewPR = true; achievementData = { exercise: baseExName, old1RM: currentPR, new1RM: best1RMInSesssion, oldScore: oldGlobal.score, newScore: calculateGlobalStrengthLevel(updatedProfiles, bw).score, oldLevel: oldGlobal.fullLevel, newLevel: calculateGlobalStrengthLevel(updatedProfiles, bw).fullLevel, changedLevel: oldGlobal.name !== calculateGlobalStrengthLevel(updatedProfiles, bw).name }; }
+      }
+    });
+    if (foundNewPR) { setStrengthProfiles(updatedProfiles); setAchievement(achievementData); }
+  };
+
+  const handleSaveWeek = () => {
+     const allExs = (Object.values(workouts) as WorkoutExercise[][]).reduce((acc, v) => acc.concat(v), []);
+     const totalSeries = allExs.reduce((acc, ex) => acc + (ex.sets?.length || ex.series || 0), 0);
+     const newLog: WorkoutLog = { id: Date.now(), date: new Date().toISOString(), name: logName || `S${currentWeek}`, totalSeries, split: JSON.parse(JSON.stringify(workouts)), phase: activePhase?.name, week: currentWeek };
+     monitorPRs(newLog);
+     setWorkoutHistory(prev => [newLog, ...prev]);
+     setIsSaveModalOpen(false); setLogName('');
+     setCurrentWeek(prev => prev < 4 ? prev + 1 : 1);
+     setSaveButtonText('✅ Salvo!');
+     setTimeout(() => setSaveButtonText('💾 Salvar Semana'), 2000);
+  };
+
+  // ESTA ERA A FUNÇÃO QUE FALTAVA
+  const handleApplyReturn = (newSplit: WorkoutSplit, phaseId: string) => { 
+      setWorkouts(newSplit); 
+      setActivePhaseId(phaseId); 
+      setCurrentWeek(1); 
+      setActiveTab('workouts'); 
+  };
+
+  const removeHistoryItem = (id: number) => { if (window.confirm("Excluir treino?")) setWorkoutHistory(prev => prev.filter(item => item.id !== id)); };
+  const clearHistory = () => { if (window.confirm("Apagar tudo?")) setWorkoutHistory([]); };
+  
+  const handleDragStart = (ex: WorkoutExercise, day: string) => !isDeloadActive && setDraggedItem({ exercise: ex, fromDay: day });
+  const handleDragOver = (e: React.DragEvent, day: string) => { e.preventDefault(); !isDeloadActive && setDragOverDay(day); };
+  const handleDrop = (e: React.DragEvent, toDay: string) => {
+     e.preventDefault(); setDragOverDay(null);
+     if (!draggedItem || draggedItem.fromDay === toDay || isDeloadActive) return setDraggedItem(null);
+     setWorkouts(prev => ({ ...prev, [draggedItem.fromDay]: prev[draggedItem.fromDay].filter(ex => ex.id !== draggedItem.exercise.id), [toDay]: [...(prev[toDay] || []), draggedItem.exercise] }));
+     setDraggedItem(null);
+  };
+  const handleDragLeave = () => setDragOverDay(null);
+
+  const handleInitiateSuperSet = (day: string, id: number) => !isDeloadActive && setSuperSetSelection({ day, sourceId: id });
+  const handleBreakSuperSet = (day: string, superSetId: string) => setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => ex.superSetId === superSetId ? { ...ex, superSetId: undefined } : ex) }));
+  const handleExerciseClick = (day: string, id: number) => { 
+      if (superSetSelection && !isDeloadActive) { 
+          if(superSetSelection.day !== day) { alert('Mesmo dia apenas'); setSuperSetSelection(null); return; }
+          const newId = Math.random().toString(36); 
+          setWorkouts(prev => ({...prev, [day]: prev[day].map(ex => (ex.id === superSetSelection.sourceId || ex.id === id) ? {...ex, superSetId: newId} : ex)})); 
+          setSuperSetSelection(null); 
+      } 
+  };
+  const handleQuickLink = (day: string, id1: number, id2: number) => { const newId = Math.random().toString(36); setWorkouts(prev => ({...prev, [day]: prev[day].map(ex => (ex.id === id1 || ex.id === id2) ? {...ex, superSetId: newId} : ex)})); };
+  
+  const generateSmartSplit = () => {
+    const split: WorkoutSplit = {};
+    const effectiveDays = activeDays.length > 0 ? activeDays : DAYS_OF_WEEK.slice(0, 4);
+    effectiveDays.forEach(d => split[d] = []);
+    const categories: Record<string, PlanItem[]> = { 'Push': [], 'Pull': [], 'Legs': [], 'Core/Accessory': [] };
+    weeklyPlan.filter(p => p.series > 0).forEach(item => { const cat = classifyExercise(item.name, PREDEFINED_EXERCISES); categories[cat].push(item); });
+    effectiveDays.forEach((day, idx) => {
+        const rotationIdx = idx % 3;
+        const targetCat = rotationIdx === 0 ? 'Push' : rotationIdx === 1 ? 'Pull' : 'Legs';
+        categories[targetCat].forEach(item => {
+            const freq = Math.max(1, effectiveDays.length / 3);
+            const seriesPerDay = Math.ceil(item.series / freq);
+            const currentTotal = (Object.values(split) as WorkoutExercise[][]).flat().filter(ex => ex.name === item.name).reduce((a,b) => a + (b.sets?.length || b.series), 0);
+            if (currentTotal < item.series) {
+                const toAdd = Math.min(seriesPerDay, item.series - currentTotal);
+                const initialSets: WorkoutSet[] = Array.from({ length: toAdd }).map(() => ({ id: Math.random().toString(36).substr(2, 9), reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null }));
+                split[day].push({ id: Date.now() + Math.random(), name: item.name, series: toAdd, sets: initialSets, reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null });
+            }
+        });
+        split[day] = sortExercisesSmartly(split[day]);
+    });
+    setWorkouts(split);
+    setActiveTab('workouts');
+  };
+
+  const handleSaveExercise = (day: string, exercise: WorkoutExercise) => { 
+      const newLog: WorkoutLog = { id: Date.now(), date: new Date().toISOString(), name: `Log: ${exercise.name}`, totalSeries: exercise.sets?.length || exercise.series || 0, split: { [day]: [JSON.parse(JSON.stringify(exercise))] }, phase: activePhase?.name, week: currentWeek }; 
+      monitorPRs(newLog); 
+      setWorkoutHistory(prev => [newLog, ...prev]); 
+  };
+
+  if (!isMounted) return null;
+
+  return (
+    <div className={`min-h-screen pb-24 md:pb-20 transition-colors duration-500 ${isDeloadActive ? 'bg-slate-950' : 'bg-slate-950'}`}>
+      <header className={`backdrop-blur-md border-b sticky top-0 z-50 transition-colors duration-300 ${isDeloadActive ? 'bg-emerald-950/40 border-emerald-900/50' : 'bg-slate-900/80 border-slate-800'}`}>
+        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col lg:flex-row justify-between items-center gap-3">
+          <div className="flex items-center gap-6">
+            <h1 className={`text-lg md:text-xl font-black bg-clip-text text-transparent bg-gradient-to-r ${isDeloadActive ? 'from-emerald-400 to-teal-500' : 'from-indigo-400 to-purple-500'} tracking-tighter uppercase`}>HYPERVOLUME</h1>
+            <div className="h-6 w-px bg-slate-800 hidden lg:block"></div>
+            <div className="flex items-center gap-4 bg-slate-800/30 px-4 py-2 rounded-2xl border border-slate-700/50">
+               <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${isDeloadActive ? 'from-emerald-600 to-teal-600' : 'from-indigo-600 to-purple-600'} flex items-center justify-center text-xs font-black shadow-lg`}>{userName.charAt(0).toUpperCase()}</div>
+               <div className="flex flex-col"><span className="text-xs font-black text-slate-200">{userName}</span><span className={`text-[9px] font-black ${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'}`}>{globalStrength.fullLevel}</span></div>
+               <button onClick={() => setShowSettings(true)} className="w-8 h-8 flex items-center justify-center hover:bg-slate-700 rounded-lg text-slate-500"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg></button>
+            </div>
+          </div>
+          <nav className="flex bg-slate-800/50 p-1 rounded-xl overflow-x-auto no-scrollbar">
+            {[{ id: 'strength', label: 'Força', icon: '🦾' }, { id: 'periodization', label: 'Estratégia', icon: '📖' }, { id: 'plan', label: 'Plano', icon: '📐' }, { id: 'workouts', label: 'Treinos', icon: '🏋️' }, { id: 'analysis', label: 'Análise', icon: '📊' }, { id: 'history', label: 'Histórico', icon: '🗓️' }].map(tab => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === tab.id ? (isDeloadActive ? 'bg-emerald-600 shadow-emerald-600/30' : 'bg-slate-700') + ' text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}><span>{tab.icon}</span> {tab.label}</button>
+            ))}
+          </nav>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 py-6 md:py-10">
+        {activeTab === 'strength' && (
+           <StrengthTab isDeloadActive={isDeloadActive} globalStrength={globalStrength} strengthInputs={strengthInputs} setStrengthInputs={setStrengthInputs} strengthProfiles={strengthProfiles} onSaveRecord={saveStrengthRecord} />
+        )}
+        {activeTab === 'periodization' && (
+           <StrategyTab macrocycles={macrocycles} activePhaseId={activePhaseId} isDeloadActive={isDeloadActive} onActivatePhase={handlePhaseActivation} manualMethodology={manualMethodology} setManualMethodology={setManualMethodology} manualRir={manualRir} setManualRir={setManualRir} manualProgression={manualProgression} setManualProgression={setManualProgression} />
+        )}
+        {activeTab === 'plan' && (
+           <PlanTab weeklyPlan={weeklyPlan} setWeeklyPlan={setWeeklyPlan} isDeloadActive={isDeloadActive} globalStrengthScore={globalStrength.score} setShowSelector={setShowSelector} setTargetDay={setTargetDay} />
+        )}
+        {activeTab === 'workouts' && (
+           <WorkoutsTab 
+              isDeloadActive={isDeloadActive} setIsDeloadActive={setIsDeloadActive} activePhase={activePhase} currentWeek={currentWeek} setCurrentWeek={setCurrentWeek} 
+              workouts={workouts} setWorkouts={setWorkouts} activeDays={activeDays} toggleDay={toggleDay} workoutHistory={workoutHistory} 
+              simport { PlanImporterModal } from './components/PlanImporterModal';
 import { WorkoutRow } from './components/WorkoutRow';
 import { ReturnToTrainingModal } from './components/ReturnToTrainingModal';
 import { AchievementModal } from './components/AchievementModal';
