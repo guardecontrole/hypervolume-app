@@ -33,8 +33,6 @@ import {
   calculate1RM, 
   getExerciseCategory 
 } from './utils/helpers';
-
-// IMPORT DOS MODAIS (Mantendo a estrutura do seu projeto)
 import { ExerciseSelectorModal } from './components/ExerciseSelectorModal';
 import { PlanImporterModal } from './components/PlanImporterModal';
 import { WorkoutRow } from './components/WorkoutRow';
@@ -66,7 +64,7 @@ const App: React.FC = () => {
   });
 
   // =========================================================================
-  // STATE: EXERCÍCIOS CUSTOMIZADOS
+  // STATE: EXERCÍCIOS CUSTOMIZADOS E UI
   // =========================================================================
   const [customExercises, setCustomExercises] = useState<Exercise[]>([]);
   const [showCustomExerciseModal, setShowCustomExerciseModal] = useState(false);
@@ -92,7 +90,11 @@ const App: React.FC = () => {
   const [draggedItem, setDraggedItem] = useState<{ exercise: WorkoutExercise, fromDay: string } | null>(null);
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
   const [analysisView, setAnalysisView] = useState<'realtime' | 'statistics' | 'ia'>('realtime');
+  const [expandedExerciseId, setExpandedExerciseId] = useState<number | null>(null);
   const [collapsedCategories, setCollapsedCategories] = useState<string[]>([]);
+  
+  // STATE CRUCIAL QUE ESTAVA FALTANDO E CAUSOU O ERRO
+  const [focusedPlanExerciseId, setFocusedPlanExerciseId] = useState<number | null>(null);
   const [achievement, setAchievement] = useState<any>(null);
 
   useEffect(() => {
@@ -153,7 +155,9 @@ const App: React.FC = () => {
 
   const activePhase = useMemo(() => {
     const basePhase = PERIODIZATION_PHASES.find(p => p.id === activePhaseId) || null;
-    if (basePhase?.id === 'f_manual') return { ...basePhase, rirTarget: manualRir, progressionRule: manualProgression, description: manualMethodology || basePhase.description };
+    if (basePhase?.id === 'f_manual') {
+      return { ...basePhase, rirTarget: manualRir, progressionRule: manualProgression, description: manualMethodology || basePhase.description };
+    }
     return basePhase;
   }, [activePhaseId, manualRir, manualProgression, manualMethodology]);
 
@@ -171,12 +175,20 @@ const App: React.FC = () => {
       const ex = fullExerciseCatalog.find(e => e.name === item.name);
       if (ex) {
         ex.muscles.forEach(m => {
-          if(totals[m.name] !== undefined) totals[m.name] += (item.series || 0) * m.contribution;
+          if(totals[m.name] !== undefined) {
+             totals[m.name] += (item.series || 0) * m.contribution;
+          }
         });
       }
     });
     return totals;
   }, [weeklyPlan, fullExerciseCatalog]);
+
+  const focusedPlanExerciseData = useMemo(() => {
+    if (!focusedPlanExerciseId) return null;
+    const item = weeklyPlan.find(p => p.id === focusedPlanExerciseId);
+    return item ? fullExerciseCatalog.find(ex => ex.name === item.name) : null;
+  }, [focusedPlanExerciseId, weeklyPlan, fullExerciseCatalog]);
 
   const groupedPlan = useMemo(() => {
     const groups: Record<string, PlanItem[]> = {};
@@ -206,6 +218,7 @@ const App: React.FC = () => {
 
   const toggleDay = (day: string) => setActiveDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev].sort((a, b) => DAYS_OF_WEEK.indexOf(a) - DAYS_OF_WEEK.indexOf(b)).concat(day).sort((a, b) => DAYS_OF_WEEK.indexOf(a) - DAYS_OF_WEEK.indexOf(b)));
   const toggleCategory = (cat: string) => setCollapsedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
+  const toggleExpandExercise = (id: number) => setExpandedExerciseId(prev => prev === id ? null : id);
 
   // =========================================================================
   // LOGICA DO GERENCIADOR DE EXERCÍCIOS CUSTOMIZADOS
@@ -293,8 +306,8 @@ const App: React.FC = () => {
   };
   const handleBreakSuperSet = (day: string, superSetId: string) => { setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => ex.superSetId === superSetId ? { ...ex, superSetId: undefined } : ex) })); };
 
-  const handleExportBackup = () => { const allData = { ...localStorage }; const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = `backup_hypervolume_${new Date().toISOString().split('T')[0]}.json`; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url); };
-  const handleImportBackup = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { const backupData = JSON.parse(e.target?.result as string); if (window.confirm("Atenção: A importação substituirá todos os seus dados atuais. O aplicativo será reiniciado. Deseja continuar?")) { localStorage.clear(); Object.keys(backupData).forEach((key) => localStorage.setItem(key, backupData[key])); alert('Backup restaurado com sucesso!'); window.location.reload(); } } catch (error) { alert('Erro ao ler o arquivo de backup.'); } }; reader.readAsText(file); if (fileInputRef.current) fileInputRef.current.value = ''; };
+  const handleExportBackup = () => { const allData = { ...localStorage }; const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; const today = new Date().toISOString().split('T')[0]; link.download = `backup_hypervolume_${today}.json`; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url); };
+  const handleImportBackup = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { const backupData = JSON.parse(e.target?.result as string); if (window.confirm("Atenção: A importação substituirá todos seus dados atuais. O aplicativo será reiniciado. Deseja continuar?")) { localStorage.clear(); Object.keys(backupData).forEach((key) => { localStorage.setItem(key, backupData[key]); }); alert('Backup restaurado!'); window.location.reload(); } } catch (error) { alert('Erro ao ler o arquivo de backup.'); } }; reader.readAsText(file); if (fileInputRef.current) fileInputRef.current.value = ''; };
 
   if (!isMounted) return null;
 
@@ -321,6 +334,7 @@ const App: React.FC = () => {
 
   const handleSaveExercise = (day: string, exercise: WorkoutExercise) => { const newLog: WorkoutLog = { id: Date.now(), date: new Date().toISOString(), name: `Log: ${exercise.name}`, totalSeries: exercise.sets?.length || exercise.series || 0, split: { [day]: [JSON.parse(JSON.stringify(exercise))] }, phase: activePhase?.name, week: currentWeek }; monitorPRs(newLog); setWorkoutHistory(prev => [newLog, ...prev]); };
   const saveStrengthRecord = () => { if (strengthResult.oneRM > 0) { setStrengthProfiles(prev => ({ ...prev, [strengthInputs.exercise]: strengthResult.oneRM })); alert(`1RM de ${strengthInputs.exercise} atualizado: ${strengthResult.oneRM.toFixed(1)}kg`); } };
+  const updateProfileValue = (ex: string, val: string) => { const num = parseFloat(val) || 0; setStrengthProfiles(prev => ({ ...prev, [ex]: num })); };
   const handlePhaseActivation = (phaseId: string) => { setActivePhaseId(phaseId); setCurrentWeek(1); };
   const addToPlan = (name: string) => { setWeeklyPlan(prev => { if (prev.find(p => p.name === name)) return prev; return [...prev, { id: Date.now(), name, series: 0 }]; }); };
   const addToDay = (day: string, name: string, series?: number) => { const sCount = series || 3; const initialSets: WorkoutSet[] = Array.from({ length: sCount }).map(() => ({ id: Math.random().toString(36).substr(2, 9), reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null })); setWorkouts(prev => { const newEx: WorkoutExercise = { id: Date.now() + Math.random(), name, series: sCount, sets: initialSets, reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null }; const currentDayExs = prev[day] || []; return {...prev, [day]: [...currentDayExs, newEx]}; }); };
@@ -338,8 +352,8 @@ const App: React.FC = () => {
   };
 
   const handleApplyReturn = (newSplit: WorkoutSplit, phaseId: string) => { setWorkouts(newSplit); setActivePhaseId(phaseId); setCurrentWeek(1); setActiveTab('workouts'); };
-  const removeHistoryItem = (id: number) => { if (window.confirm("Excluir este treino?")) setWorkoutHistory(prev => prev.filter(item => item.id !== id)); };
-  const clearHistory = () => { if (window.confirm("Apagar TODO o histórico?")) setWorkoutHistory([]); };
+  const removeHistoryItem = (id: number) => { if (window.confirm("Tem certeza que deseja excluir este treino?")) setWorkoutHistory(prev => prev.filter(item => item.id !== id)); };
+  const clearHistory = () => { if (window.confirm("Tem certeza que deseja apagar TODO o histórico?")) setWorkoutHistory([]); };
   const handleDragStart = (exercise: WorkoutExercise, fromDay: string) => { if (isDeloadActive) return; setDraggedItem({ exercise, fromDay }); };
   const handleDragOver = (e: React.DragEvent, day: string) => { e.preventDefault(); if (isDeloadActive) return; setDragOverDay(day); };
   const handleDragLeave = () => { setDragOverDay(null); };
@@ -400,28 +414,14 @@ const App: React.FC = () => {
                 </div>
                 <span className={`text-[9px] font-black ${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'} uppercase tracking-widest transition-all`}>{globalStrength.fullLevel}</span>
               </div>
-              <button 
-                onClick={() => setShowSettings(true)} 
-                className={`w-8 h-8 flex items-center justify-center hover:bg-slate-700 rounded-lg transition-all text-slate-500 ${isDeloadActive ? 'hover:text-emerald-400' : 'hover:text-indigo-400'} active:scale-90`}
-              >
-                <svg className="w-5 h-5 overflow-visible" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
+              <button onClick={() => setShowSettings(true)} className={`w-8 h-8 flex items-center justify-center hover:bg-slate-700 rounded-lg transition-all text-slate-500 ${isDeloadActive ? 'hover:text-emerald-400' : 'hover:text-indigo-400'} active:scale-90`}>
+                <svg className="w-5 h-5 overflow-visible" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
               </button>
             </div>
           </div>
           <nav className="flex bg-slate-800/50 p-1 rounded-xl overflow-x-auto no-scrollbar">
-            {[
-              { id: 'strength', label: 'Força', icon: '🦾' },
-              { id: 'periodization', label: 'Estratégia', icon: '📖' },
-              { id: 'plan', label: 'Plano', icon: '📐' },
-              { id: 'workouts', label: 'Treinos', icon: '🏋️' },
-              { id: 'analysis', label: 'Análise', icon: '📊' },
-              { id: 'history', label: 'Histórico', icon: '🗓️' },
-            ].map(tab => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === tab.id ? (isDeloadActive ? 'bg-emerald-600 shadow-emerald-600/30' : 'bg-slate-700') + ' text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}>
-                <span>{tab.icon}</span> {tab.label}
-              </button>
+            {[{ id: 'strength', label: 'Força', icon: '🦾' }, { id: 'periodization', label: 'Estratégia', icon: '📖' }, { id: 'plan', label: 'Plano', icon: '📐' }, { id: 'workouts', label: 'Treinos', icon: '🏋️' }, { id: 'analysis', label: 'Análise', icon: '📊' }, { id: 'history', label: 'Histórico', icon: '🗓️' }].map(tab => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === tab.id ? (isDeloadActive ? 'bg-emerald-600 shadow-emerald-600/30' : 'bg-slate-700') + ' text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}><span>{tab.icon}</span> {tab.label}</button>
             ))}
           </nav>
         </div>
@@ -430,7 +430,7 @@ const App: React.FC = () => {
       <main className="max-w-7xl mx-auto px-4 py-6 md:py-10">
         
         {/* =========================================================
-            ABA PLANO (Tabela com Flexbox e Botão Novo Exercício)
+            ABA PLANO (Tabela Flexbox + Novo Exercício)
         ============================================================= */}
         {activeTab === 'plan' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -507,16 +507,17 @@ const App: React.FC = () => {
                                  {/* ROWS DOS EXERCÍCIOS */}
                                  {!isCollapsed && items.map(item => {
                                     const ex = fullExerciseCatalog.find(e => e.name === item.name);
+                                    const isExpanded = expandedExerciseId === item.id;
                                     const isRowFocused = focusedPlanExerciseId === item.id;
                                     
                                     return (
                                        <React.Fragment key={item.id}>
-                                          <div className={`flex group transition-all hover:bg-slate-800/30 bg-slate-900 ${focusedPlanExerciseId && !isRowFocused ? 'opacity-30 grayscale' : ''}`}>
+                                          <div className={`flex group transition-all cursor-pointer hover:bg-slate-800/30 ${isExpanded ? 'bg-slate-800/40' : 'bg-slate-900'} ${focusedPlanExerciseId && !isRowFocused ? 'opacity-30 grayscale' : ''}`} onClick={() => toggleExpandExercise(item.id)}>
                                              <div className={`p-3 pl-8 w-64 flex-shrink-0 font-bold text-sm sticky left-0 z-30 flex items-center gap-2 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors bg-slate-950 group-hover:bg-slate-900`}>
                                                 <div className={`w-1 h-4 rounded-full flex-shrink-0 transition-colors ${isRowFocused ? (isDeloadActive ? 'bg-emerald-400' : 'bg-indigo-400') : (isDeloadActive ? 'bg-emerald-500/20' : 'bg-indigo-500/20')}`}></div>
-                                                <span className="truncate flex-1 min-w-0">{item.name}</span>
+                                                <span className="truncate flex-1 min-w-0 text-white">{item.name}</span>
                                              </div>
-                                             <div className={`p-2 w-20 flex-shrink-0 sticky left-64 z-30 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 flex items-center justify-center transition-colors bg-slate-950 group-hover:bg-slate-900`}>
+                                             <div className={`p-2 w-20 flex-shrink-0 sticky left-64 z-30 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 flex items-center justify-center transition-colors bg-slate-950 group-hover:bg-slate-900`} onClick={(e) => e.stopPropagation()}>
                                                 <input 
                                                    type="number" 
                                                    value={item.series || ''} 
@@ -540,10 +541,35 @@ const App: React.FC = () => {
                                                    </div>
                                                 );
                                              })}
-                                             <div className={`p-4 w-12 flex-shrink-0 sticky right-0 text-center flex items-center justify-center transition-colors bg-slate-950 group-hover:bg-slate-900`}>
+                                             <div className={`p-4 w-12 flex-shrink-0 sticky right-0 text-center flex items-center justify-center transition-colors bg-slate-950 group-hover:bg-slate-900`} onClick={(e) => e.stopPropagation()}>
                                                 <button onClick={() => removeFromPlan(item.id)} className="text-slate-700 hover:text-red-500 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
                                              </div>
                                           </div>
+                                          {isExpanded && ex && (
+                                             <div className={`flex bg-slate-900/60 border-l-4 transition-colors ${isDeloadActive ? 'border-emerald-500' : 'border-indigo-500'}`}>
+                                                <div className="p-8 w-full">
+                                                   <div className="max-w-4xl space-y-6 animate-in fade-in slide-in-from-top-2">
+                                                      <div className="flex items-center gap-3">
+                                                         <span className={`text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full border transition-all ${isDeloadActive ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20'}`}>Matriz de Contribuição: {ex.name}</span>
+                                                         <div className="h-px bg-slate-800 flex-1"></div>
+                                                      </div>
+                                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                         {ex.muscles.sort((a,b) => b.contribution - a.contribution).map((m, idx) => (
+                                                            <div key={idx} className={`p-5 rounded-3xl border transition-all ${m.type === 'principal' ? (isDeloadActive ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-indigo-500/5 border-indigo-500/20') : 'bg-slate-800/30 border-slate-700/50'}`}>
+                                                               <div className="flex justify-between items-start">
+                                                                  <div className="flex items-center gap-3">
+                                                                     <div className="w-10 h-10 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-xl">{getMuscleEmoji(m.name)}</div>
+                                                                     <div><h5 className="font-black text-sm text-white">{m.name}</h5><span className={`text-[8px] font-black uppercase tracking-widest ${m.type === 'principal' ? (isDeloadActive ? 'text-emerald-400' : 'text-indigo-400') : 'text-slate-500'}`}>{m.type}</span></div>
+                                                                  </div>
+                                                                  <div className="text-right"><span className="text-lg font-black text-white">{Math.round(m.contribution * 100)}%</span><p className="text-[8px] text-slate-600 font-bold uppercase">Contribuição</p></div>
+                                                               </div>
+                                                            </div>
+                                                         ))}
+                                                      </div>
+                                                   </div>
+                                                </div>
+                                             </div>
+                                          )}
                                        </React.Fragment>
                                     );
                                  })}
@@ -553,7 +579,7 @@ const App: React.FC = () => {
                      )}
                    </div>
 
-                   {/* FOOTER COM FLEXBOX (TOTAIS) */}
+                   {/* FOOTER (TOTAIS) */}
                    <div className={`bg-slate-900 font-black border-t-2 sticky bottom-0 z-40 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] transition-colors ${isDeloadActive ? 'border-emerald-500' : 'border-indigo-500'}`}>
                      <div className="flex">
                         <div className="p-4 w-64 flex-shrink-0 sticky left-0 bg-slate-950 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 text-xs flex items-center">TOTAIS</div>
@@ -1263,6 +1289,7 @@ const App: React.FC = () => {
                         const isPartofSuperSet = !!ex.superSetId && !isDeloadActive;
                         const isStart = isPartofSuperSet && (!prevEx || prevEx.superSetId !== ex.superSetId);
                         const isEnd = isPartofSuperSet && (!nextEx || nextEx.superSetId !== ex.superSetId);
+                        const isMiddle = isPartofSuperSet && !isStart && !isEnd;
 
                         const curData = fullExerciseCatalog.find(e => e.name === ex.name);
                         const nxtData = nextEx ? fullExerciseCatalog.find(e => e.name === nextEx.name) : null;
