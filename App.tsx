@@ -63,12 +63,19 @@ const App: React.FC = () => {
     reps: 0
   });
 
-  // Custom Exercises State
+  // ESTADOS DO NOVO GERENCIADOR DE EXERCÍCIOS CUSTOMIZADOS
   const [customExercises, setCustomExercises] = useState<Exercise[]>([]);
   const [showCustomExerciseModal, setShowCustomExerciseModal] = useState(false);
-  const [newCustomExercise, setNewCustomExercise] = useState<{name: string, muscles: Record<string, number>}>({ name: '', muscles: {} });
+  const [editingExerciseName, setEditingExerciseName] = useState<string | null>(null);
+  const [newCustomExercise, setNewCustomExercise] = useState<{
+      name: string, 
+      muscles: Record<string, number>, 
+      isCompound: boolean, 
+      isGuided: boolean
+  }>({ name: '', muscles: {}, isCompound: true, isGuided: false });
 
   const [superSetSelection, setSuperSetSelection] = useState<{ day: string, sourceId: number } | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showSelector, setShowSelector] = useState(false);
   const [showImporter, setShowImporter] = useState(false);
@@ -85,6 +92,7 @@ const App: React.FC = () => {
   const [expandedExerciseId, setExpandedExerciseId] = useState<number | null>(null);
   const [collapsedCategories, setCollapsedCategories] = useState<string[]>([]);
   const [focusedPlanExerciseId, setFocusedPlanExerciseId] = useState<number | null>(null);
+
   const [achievement, setAchievement] = useState<any>(null);
 
   useEffect(() => {
@@ -138,7 +146,7 @@ const App: React.FC = () => {
     localStorage.setItem('hv_custom_exercises', JSON.stringify(customExercises));
   }, [weeklyPlan, workouts, workoutHistory, activePhaseId, currentWeek, userName, strengthProfiles, strengthInputs.bw, manualRir, manualProgression, manualMethodology, activeDays, isDeloadActive, customExercises, isMounted]);
 
-  // COMBINA EXERCÍCIOS NATIVOS COM PERSONALIZADOS
+  // COMBINA EXERCÍCIOS NATIVOS COM OS SEUS PERSONALIZADOS
   const fullExerciseCatalog = useMemo(() => {
       return [...PREDEFINED_EXERCISES, ...customExercises];
   }, [customExercises]);
@@ -146,13 +154,25 @@ const App: React.FC = () => {
   const activePhase = useMemo(() => {
     const basePhase = PERIODIZATION_PHASES.find(p => p.id === activePhaseId) || null;
     if (basePhase?.id === 'f_manual') {
-      return { ...basePhase, rirTarget: manualRir, progressionRule: manualProgression, description: manualMethodology || basePhase.description };
+      return { 
+        ...basePhase, 
+        rirTarget: manualRir, 
+        progressionRule: manualProgression,
+        description: manualMethodology || basePhase.description 
+      };
     }
     return basePhase;
   }, [activePhaseId, manualRir, manualProgression, manualMethodology]);
 
-  const strengthResult = useMemo(() => calculateStrengthLevel(strengthInputs.exercise, strengthInputs.bw, strengthInputs.load, strengthInputs.reps), [strengthInputs]);
-  const globalStrength = useMemo(() => calculateGlobalStrengthLevel(strengthProfiles, strengthInputs.bw || 80), [strengthProfiles, strengthInputs.bw]);
+  const strengthResult = useMemo(() => 
+    calculateStrengthLevel(strengthInputs.exercise, strengthInputs.bw, strengthInputs.load, strengthInputs.reps),
+    [strengthInputs]
+  );
+
+  const globalStrength = useMemo(() => 
+    calculateGlobalStrengthLevel(strengthProfiles, strengthInputs.bw || 80),
+    [strengthProfiles, strengthInputs.bw]
+  );
 
   const visibleMuscles = useMemo(() => {
     return showSecondary ? MUSCLE_SORT_ORDER : MUSCLE_SORT_ORDER.filter(m => !SECONDARY_MUSCLES.includes(m));
@@ -183,12 +203,14 @@ const App: React.FC = () => {
   const groupedPlan = useMemo(() => {
     const groups: Record<string, PlanItem[]> = {};
     CATEGORY_ORDER.forEach(cat => groups[cat] = []);
+    
     weeklyPlan.forEach(item => {
       const ex = fullExerciseCatalog.find(e => e.name === item.name);
       const cat = ex ? getExerciseCategory(ex) : 'Outros';
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(item);
     });
+    
     return groups;
   }, [weeklyPlan, fullExerciseCatalog]);
 
@@ -197,8 +219,13 @@ const App: React.FC = () => {
 
   const macrocycles = useMemo(() => {
     const order = ['INÍCIO', 'FORÇA', 'REALIZAÇÃO', 'RESISTÊNCIA', 'HIPERTROFIA'];
-    const stages = Array.from(new Set(PERIODIZATION_PHASES.map(p => p.stage))).sort((a, b) => order.indexOf(a) - order.indexOf(b));
-    return stages.map(stage => ({ name: stage, phases: PERIODIZATION_PHASES.filter(p => p.stage === stage) }));
+    const stages = Array.from(new Set(PERIODIZATION_PHASES.map(p => p.stage)))
+      .sort((a, b) => order.indexOf(a) - order.indexOf(b));
+      
+    return stages.map(stage => ({
+      name: stage,
+      phases: PERIODIZATION_PHASES.filter(p => p.stage === stage)
+    }));
   }, []);
 
   const todayName = useMemo(() => {
@@ -207,15 +234,31 @@ const App: React.FC = () => {
     return DAYS_OF_WEEK[normalizedIdx];
   }, []);
 
-  const toggleDay = (day: string) => setActiveDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev].sort((a, b) => DAYS_OF_WEEK.indexOf(a) - DAYS_OF_WEEK.indexOf(b)).concat(day).sort((a, b) => DAYS_OF_WEEK.indexOf(a) - DAYS_OF_WEEK.indexOf(b)));
-  const toggleCategory = (cat: string) => setCollapsedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
-  const toggleExpandExercise = (id: number) => setExpandedExerciseId(prev => prev === id ? null : id);
+  const toggleDay = (day: string) => {
+    setActiveDays(prev => 
+      prev.includes(day) 
+        ? prev.filter(d => d !== day) 
+        : [...prev].sort((a, b) => DAYS_OF_WEEK.indexOf(a) - DAYS_OF_WEEK.indexOf(b)).concat(day).sort((a, b) => DAYS_OF_WEEK.indexOf(a) - DAYS_OF_WEEK.indexOf(b))
+    );
+  };
 
-  // ADICIONAR EXERCÍCIO CUSTOMIZADO
-  const addCustomExercise = useCallback(() => {
+  const toggleCategory = (cat: string) => {
+    setCollapsedCategories(prev => 
+      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+    );
+  };
+
+  // =========================================================================
+  // LOGICA DO GERENCIADOR DE EXERCÍCIOS CUSTOMIZADOS
+  // =========================================================================
+  const saveCustomExercise = useCallback(() => {
       if (!newCustomExercise.name) return;
-      if (fullExerciseCatalog.some(ex => ex.name.toLowerCase() === newCustomExercise.name.trim().toLowerCase())) {
-          alert("Já existe um exercício com este nome.");
+      
+      const nameTrimmed = newCustomExercise.name.trim();
+
+      // Checa se já existe um exercício com este nome (e não estamos editando ele)
+      if (!editingExerciseName && fullExerciseCatalog.some(ex => ex.name.toLowerCase() === nameTrimmed.toLowerCase())) {
+          alert("Já existe um exercício com este nome no catálogo.");
           return;
       }
       
@@ -227,43 +270,181 @@ const App: React.FC = () => {
               contribution: parseFloat(contribution as any) / 100
           }));
 
+      if (mappedMuscles.length === 0) {
+          alert("Selecione a porcentagem de pelo menos um músculo (Ex: Peito 100%).");
+          return;
+      }
+
       const newCustomEx: Exercise = { 
-          name: newCustomExercise.name.trim(), 
+          name: nameTrimmed, 
           muscles: mappedMuscles,
-          isCompound: mappedMuscles.length > 1
+          isCompound: newCustomExercise.isCompound,
+          isGuided: newCustomExercise.isGuided
       };
 
-      setCustomExercises(prev => [...prev, newCustomEx]);
-      setNewCustomExercise({ name: '', muscles: {} });
-      setShowCustomExerciseModal(false);
-  }, [newCustomExercise, fullExerciseCatalog]);
+      setCustomExercises(prev => {
+          if (editingExerciseName) {
+              return prev.map(ex => ex.name === editingExerciseName ? newCustomEx : ex);
+          }
+          return [...prev, newCustomEx];
+      });
 
-  const handleInitiateSuperSet = (day: string, id: number) => { if (isDeloadActive) return; setSuperSetSelection({ day, sourceId: id }); };
-  const handleQuickLink = (day: string, currentId: number, nextId: number) => { if (isDeloadActive) return; const newSuperSetId = Math.random().toString(36).substr(2, 9); setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => (ex.id === currentId || ex.id === nextId) ? { ...ex, superSetId: newSuperSetId } : ex) })); };
+      // Atualiza planos e treinos caso o usuário tenha alterado o NOME de um exercício já salvo
+      if (editingExerciseName && editingExerciseName !== nameTrimmed) {
+          setWeeklyPlan(prev => prev.map(p => p.name === editingExerciseName ? { ...p, name: nameTrimmed } : p));
+          setWorkouts(prev => {
+              const updated = { ...prev };
+              Object.keys(updated).forEach(day => {
+                  updated[day] = updated[day].map(wEx => wEx.name === editingExerciseName ? { ...wEx, name: nameTrimmed } : wEx);
+              });
+              return updated;
+          });
+      }
+
+      // Reseta o form, mas mantém o modal aberto para ver a lista atualizada
+      setNewCustomExercise({ name: '', muscles: {}, isCompound: true, isGuided: false });
+      setEditingExerciseName(null);
+  }, [newCustomExercise, editingExerciseName, fullExerciseCatalog]);
+
+  const loadExerciseForEdit = (ex: Exercise) => {
+      const musclesMap: Record<string, number> = {};
+      ex.muscles.forEach(m => musclesMap[m.name] = m.contribution * 100);
+      
+      setNewCustomExercise({
+          name: ex.name,
+          muscles: musclesMap,
+          isCompound: ex.isCompound !== false, // default true se for undefined
+          isGuided: !!ex.isGuided
+      });
+      setEditingExerciseName(ex.name);
+  };
+
+  const removeCustomExercise = (name: string) => {
+      if (window.confirm(`Tem certeza que deseja excluir "${name}" do catálogo?`)) {
+          setCustomExercises(prev => prev.filter(ex => ex.name !== name));
+          if (editingExerciseName === name) {
+              setEditingExerciseName(null);
+              setNewCustomExercise({ name: '', muscles: {}, isCompound: true, isGuided: false });
+          }
+      }
+  };
+
+  // =========================================================================
+
+  const handleInitiateSuperSet = (day: string, id: number) => {
+    if (isDeloadActive) return;
+    setSuperSetSelection({ day, sourceId: id });
+  };
+
+  const handleQuickLink = (day: string, currentId: number, nextId: number) => {
+    if (isDeloadActive) return;
+    const newSuperSetId = Math.random().toString(36).substr(2, 9);
+    setWorkouts(prev => ({
+      ...prev,
+      [day]: prev[day].map(ex => 
+        (ex.id === currentId || ex.id === nextId)
+          ? { ...ex, superSetId: newSuperSetId }
+          : ex
+      )
+    }));
+  };
+
   const handleExerciseClick = (day: string, targetId: number) => {
     if (!superSetSelection || isDeloadActive) return;
-    if (superSetSelection.day !== day) { alert("Selecione um exercício do mesmo dia."); setSuperSetSelection(null); return; }
-    if (superSetSelection.sourceId === targetId) { setSuperSetSelection(null); return; }
+
+    if (superSetSelection.day !== day) {
+      alert("Selecione um exercício do mesmo dia.");
+      setSuperSetSelection(null);
+      return;
+    }
+
+    if (superSetSelection.sourceId === targetId) {
+      setSuperSetSelection(null);
+      return;
+    }
+
     const targetEx = workouts[day].find(ex => ex.id === targetId);
     const exData = fullExerciseCatalog.find(e => e.name === targetEx?.name);
-    if (exData?.isCompound && !exData?.isGuided) { alert("Proibido: Super Sets são permitidos apenas para exercícios Metabólicos (Máquinas ou Isolados)."); setSuperSetSelection(null); return; }
+    
+    if (exData?.isCompound && !exData?.isGuided) {
+      alert("Proibido: Super Sets são permitidos apenas para exercícios Metabólicos (Máquinas ou Isolados).");
+      setSuperSetSelection(null);
+      return;
+    }
+
     const newSuperSetId = Math.random().toString(36).substr(2, 9);
-    setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => (ex.id === superSetSelection.sourceId || targetId === ex.id) ? { ...ex, superSetId: newSuperSetId } : ex) }));
+    setWorkouts(prev => ({
+      ...prev,
+      [day]: prev[day].map(ex => 
+        (ex.id === superSetSelection.sourceId || targetId === ex.id)
+          ? { ...ex, superSetId: newSuperSetId }
+          : ex
+      )
+    }));
     setSuperSetSelection(null);
   };
-  const handleBreakSuperSet = (day: string, superSetId: string) => { setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => ex.superSetId === superSetId ? { ...ex, superSetId: undefined } : ex) })); };
 
-  const handleExportBackup = () => { const allData = { ...localStorage }; const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; const today = new Date().toISOString().split('T')[0]; link.download = `backup_hypervolume_${today}.json`; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url); };
-  const handleImportBackup = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { const backupData = JSON.parse(e.target?.result as string); if (window.confirm("Atenção: A importação substituirá todos os seus dados atuais. O aplicativo será reiniciado. Deseja continuar?")) { localStorage.clear(); Object.keys(backupData).forEach((key) => { localStorage.setItem(key, backupData[key]); }); alert('Backup restaurado com sucesso! O app será reiniciado.'); window.location.reload(); } } catch (error) { alert('Erro ao ler o arquivo de backup. Verifique se é um JSON válido.'); console.error(error); } }; reader.readAsText(file); if (fileInputRef.current) fileInputRef.current.value = ''; };
+  const handleBreakSuperSet = (day: string, superSetId: string) => {
+    setWorkouts(prev => ({
+      ...prev,
+      [day]: prev[day].map(ex => 
+        ex.superSetId === superSetId 
+          ? { ...ex, superSetId: undefined } 
+          : ex
+      )
+    }));
+  };
+
+  const handleExportBackup = () => {
+    const allData = { ...localStorage };
+    const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const today = new Date().toISOString().split('T')[0];
+    link.download = `backup_hypervolume_${today}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportBackup = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const backupData = JSON.parse(e.target?.result as string);
+        
+        if (window.confirm("Atenção: A importação substituirá todos os seus dados atuais. O aplicativo será reiniciado. Deseja continuar?")) {
+          localStorage.clear();
+          Object.keys(backupData).forEach((key) => {
+            localStorage.setItem(key, backupData[key]);
+          });
+          alert('Backup restaurado com sucesso! O app será reiniciado.');
+          window.location.reload(); 
+        }
+      } catch (error) {
+        alert('Erro ao ler o arquivo de backup. Verifique se é um JSON válido.');
+        console.error(error);
+      }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   if (!isMounted) return null;
 
   const monitorPRs = (newLog: WorkoutLog) => {
     const exercisesToCheck = ['Supino', 'Agachamento', 'Levantamento Terra', 'Remada Curvada'];
     const bw = strengthInputs.bw || 80;
+    
     let updatedProfiles = { ...strengthProfiles };
     let foundNewPR = false;
     let achievementData = null;
+
     const oldGlobal = calculateGlobalStrengthLevel(updatedProfiles, bw);
 
     Object.values(newLog.split).flat().forEach((ex: WorkoutExercise) => {
@@ -271,45 +452,198 @@ const App: React.FC = () => {
       if (baseExName) {
         const currentPR = updatedProfiles[baseExName] || 0;
         let best1RMInSesssion = 0;
-        if (ex.sets && ex.sets.length > 0) { ex.sets.forEach(set => { if (set.load && set.reps > 0) { const calc = calculate1RM(set.load, set.reps); if (calc > best1RMInSesssion) best1RMInSesssion = calc; } }); } else if (ex.load && ex.reps > 0) { best1RMInSesssion = calculate1RM(ex.load, ex.reps); }
-        if (best1RMInSesssion > currentPR + 0.1) { updatedProfiles[baseExName] = best1RMInSesssion; foundNewPR = true; const newGlobal = calculateGlobalStrengthLevel(updatedProfiles, bw); achievementData = { exercise: baseExName, old1RM: currentPR, new1RM: best1RMInSesssion, oldScore: oldGlobal.score, newScore: newGlobal.score, oldLevel: oldGlobal.fullLevel, newLevel: newGlobal.fullLevel, changedLevel: oldGlobal.name !== newGlobal.name }; }
+
+        if (ex.sets && ex.sets.length > 0) {
+          ex.sets.forEach(set => {
+            if (set.load && set.reps > 0) {
+              const calc = calculate1RM(set.load, set.reps);
+              if (calc > best1RMInSesssion) best1RMInSesssion = calc;
+            }
+          });
+        } else if (ex.load && ex.reps > 0) {
+          best1RMInSesssion = calculate1RM(ex.load, ex.reps);
+        }
+
+        if (best1RMInSesssion > currentPR + 0.1) {
+          updatedProfiles[baseExName] = best1RMInSesssion;
+          foundNewPR = true;
+          
+          const newGlobal = calculateGlobalStrengthLevel(updatedProfiles, bw);
+          achievementData = {
+            exercise: baseExName,
+            old1RM: currentPR,
+            new1RM: best1RMInSesssion,
+            oldScore: oldGlobal.score,
+            newScore: newGlobal.score,
+            oldLevel: oldGlobal.fullLevel,
+            newLevel: newGlobal.fullLevel,
+            changedLevel: oldGlobal.name !== newGlobal.name
+          };
+        }
       }
     });
-    if (foundNewPR) { setStrengthProfiles(updatedProfiles); setAchievement(achievementData); }
+
+    if (foundNewPR) {
+      setStrengthProfiles(updatedProfiles);
+      setAchievement(achievementData);
+    }
   };
 
-  const handleSaveExercise = (day: string, exercise: WorkoutExercise) => { const newLog: WorkoutLog = { id: Date.now(), date: new Date().toISOString(), name: `Log: ${exercise.name}`, totalSeries: exercise.sets?.length || exercise.series || 0, split: { [day]: [JSON.parse(JSON.stringify(exercise))] }, phase: activePhase?.name, week: currentWeek }; monitorPRs(newLog); setWorkoutHistory(prev => [newLog, ...prev]); };
-  const saveStrengthRecord = () => { if (strengthResult.oneRM > 0) { setStrengthProfiles(prev => ({ ...prev, [strengthInputs.exercise]: strengthResult.oneRM })); alert(`1RM de ${strengthInputs.exercise} atualizado: ${strengthResult.oneRM.toFixed(1)}kg`); } };
-  const handlePhaseActivation = (phaseId: string) => { setActivePhaseId(phaseId); setCurrentWeek(1); };
-  const addToPlan = (name: string) => { setWeeklyPlan(prev => { if (prev.find(p => p.name === name)) return prev; return [...prev, { id: Date.now(), name, series: 0 }]; }); };
-  const addToDay = (day: string, name: string, series?: number) => { const sCount = series || 3; const initialSets: WorkoutSet[] = Array.from({ length: sCount }).map(() => ({ id: Math.random().toString(36).substr(2, 9), reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null })); setWorkouts(prev => { const newEx: WorkoutExercise = { id: Date.now() + Math.random(), name, series: sCount, sets: initialSets, reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null }; const currentDayExs = prev[day] || []; return {...prev, [day]: [...currentDayExs, newEx]}; }); };
+  const handleSaveExercise = (day: string, exercise: WorkoutExercise) => {
+    const newLog: WorkoutLog = {
+      id: Date.now(),
+      date: new Date().toISOString(),
+      name: `Log: ${exercise.name}`,
+      totalSeries: exercise.sets?.length || exercise.series || 0,
+      split: { [day]: [JSON.parse(JSON.stringify(exercise))] },
+      phase: activePhase?.name,
+      week: currentWeek
+    };
+    monitorPRs(newLog);
+    setWorkoutHistory(prev => [newLog, ...prev]);
+  };
+
+  const saveStrengthRecord = () => {
+     if (strengthResult.oneRM > 0) {
+       setStrengthProfiles(prev => ({
+           ...prev,
+           [strengthInputs.exercise]: strengthResult.oneRM
+       }));
+       alert(`1RM de ${strengthInputs.exercise} atualizado: ${strengthResult.oneRM.toFixed(1)}kg`);
+     }
+  };
+
+  const handlePhaseActivation = (phaseId: string) => {
+      setActivePhaseId(phaseId);
+      setCurrentWeek(1);
+  };
+
+  const addToPlan = (name: string) => {
+    setWeeklyPlan(prev => {
+        if (prev.find(p => p.name === name)) return prev;
+        return [...prev, { id: Date.now(), name, series: 0 }];
+    });
+  };
+
+  const addToDay = (day: string, name: string, series?: number) => {
+    const sCount = series || 3;
+    const initialSets: WorkoutSet[] = Array.from({ length: sCount }).map(() => ({
+      id: Math.random().toString(36).substr(2, 9),
+      reps: 10,
+      load: null,
+      rir: activePhase ? activePhase.rirTarget : null
+    }));
+
+    setWorkouts(prev => {
+        const newEx: WorkoutExercise = { 
+            id: Date.now() + Math.random(), 
+            name, 
+            series: sCount, 
+            sets: initialSets,
+            reps: 10, 
+            load: null, 
+            rir: activePhase ? activePhase.rirTarget : null 
+        };
+        const currentDayExs = prev[day] || [];
+        return {...prev, [day]: [...currentDayExs, newEx]};
+    });
+  };
+
   const updateSeries = (id: number, series: number) => setWeeklyPlan(prev => prev.map(p => p.id === id ? { ...p, series } : p));
   const removeFromPlan = (id: number) => setWeeklyPlan(prev => prev.filter(p => p.id !== id));
   const updateWorkoutEx = (day: string, id: number, data: Partial<WorkoutExercise>) => setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => ex.id === id ? { ...ex, ...data } : ex)}));
   const removeWorkoutEx = (day: string, id: number) => setWorkouts(prev => ({ ...prev, [day]: prev[day].filter(ex => ex.id !== id)}));
-  
+
   const handleSaveWeek = () => {
     const allExs = (Object.values(workouts) as WorkoutExercise[][]).reduce((acc: WorkoutExercise[], v) => acc.concat(v), []);
     const totalSeries = allExs.reduce((acc, ex) => acc + (ex.sets?.length || ex.series || 0), 0);
     if (totalSeries === 0) return;
-    const newLog: WorkoutLog = { id: Date.now(), date: new Date().toISOString(), name: logName || `S${currentWeek} - ${activePhase?.name || 'Geral'}`, totalSeries, split: JSON.parse(JSON.stringify(workouts)), phase: activePhase?.name, week: currentWeek };
-    monitorPRs(newLog); setWorkoutHistory(prev => [newLog, ...prev]); setIsSaveModalOpen(false); setLogName(''); setSaveButtonText('✅ Salvo!'); setCurrentWeek(prev => prev < 4 ? prev + 1 : 1); setTimeout(() => setSaveButtonText('💾 Salvar Semana'), 2000);
+
+    const newLog: WorkoutLog = {
+      id: Date.now(),
+      date: new Date().toISOString(),
+      name: logName || `S${currentWeek} - ${activePhase?.name || 'Geral'}`,
+      totalSeries,
+      split: JSON.parse(JSON.stringify(workouts)),
+      phase: activePhase?.name,
+      week: currentWeek
+    };
+    
+    monitorPRs(newLog);
+    setWorkoutHistory(prev => [newLog, ...prev]);
+    setIsSaveModalOpen(false);
+    setLogName('');
+    setSaveButtonText('✅ Salvo!');
+    setCurrentWeek(prev => prev < 4 ? prev + 1 : 1);
+    setTimeout(() => setSaveButtonText('💾 Salvar Semana'), 2000);
   };
 
-  const handleApplyReturn = (newSplit: WorkoutSplit, phaseId: string) => { setWorkouts(newSplit); setActivePhaseId(phaseId); setCurrentWeek(1); setActiveTab('workouts'); };
-  const removeHistoryItem = (id: number) => { if (window.confirm("Tem certeza que deseja excluir este treino?")) setWorkoutHistory(prev => prev.filter(item => item.id !== id)); };
-  const clearHistory = () => { if (window.confirm("Tem certeza que deseja apagar TODO o histórico? Essa ação é irreversível.")) setWorkoutHistory([]); };
-  const handleDragStart = (exercise: WorkoutExercise, fromDay: string) => { if (isDeloadActive) return; setDraggedItem({ exercise, fromDay }); };
-  const handleDragOver = (e: React.DragEvent, day: string) => { e.preventDefault(); if (isDeloadActive) return; setDragOverDay(day); };
-  const handleDragLeave = () => setDragOverDay(null);
-  const handleDrop = (e: React.DragEvent, toDay: string) => { e.preventDefault(); setDragOverDay(null); if (!draggedItem || draggedItem.fromDay === toDay || isDeloadActive) { setDraggedItem(null); return; } setWorkouts(prev => { const sourceDayExs = (prev[draggedItem.fromDay] || []).filter(ex => ex.id !== draggedItem.exercise.id); const targetDayExs = [...(prev[toDay] || []), draggedItem.exercise]; return { ...prev, [draggedItem.fromDay]: sourceDayExs, [toDay]: targetDayExs }; }); setDraggedItem(null); };
+  const handleApplyReturn = (newSplit: WorkoutSplit, phaseId: string) => {
+    setWorkouts(newSplit);
+    setActivePhaseId(phaseId);
+    setCurrentWeek(1);
+    setActiveTab('workouts');
+  };
+
+  const removeHistoryItem = (id: number) => {
+    if (window.confirm("Tem certeza que deseja excluir este treino?")) {
+      setWorkoutHistory(prev => prev.filter(item => item.id !== id));
+    }
+  };
+
+  const clearHistory = () => {
+    if (window.confirm("Tem certeza que deseja apagar TODO o histórico? Essa ação é irreversível.")) {
+      setWorkoutHistory([]);
+    }
+  };
+
+  const handleDragStart = (exercise: WorkoutExercise, fromDay: string) => {
+    if (isDeloadActive) return;
+    setDraggedItem({ exercise, fromDay });
+  };
+
+  const handleDragOver = (e: React.DragEvent, day: string) => {
+    e.preventDefault();
+    if (isDeloadActive) return;
+    setDragOverDay(day);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverDay(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, toDay: string) => {
+    e.preventDefault();
+    setDragOverDay(null);
+    if (!draggedItem || draggedItem.fromDay === toDay || isDeloadActive) {
+      setDraggedItem(null);
+      return;
+    }
+
+    setWorkouts(prev => {
+      const sourceDayExs = (prev[draggedItem.fromDay] || []).filter(ex => ex.id !== draggedItem.exercise.id);
+      const targetDayExs = [...(prev[toDay] || []), draggedItem.exercise];
+      
+      return {
+        ...prev,
+        [draggedItem.fromDay]: sourceDayExs,
+        [toDay]: targetDayExs
+      };
+    });
+    setDraggedItem(null);
+  };
 
   const generateSmartSplit = () => {
     const split: WorkoutSplit = {};
     const effectiveDays = activeDays.length > 0 ? activeDays : DAYS_OF_WEEK.slice(0, 4);
     effectiveDays.forEach(d => split[d] = []);
+    
     const categories: Record<string, PlanItem[]> = { 'Push': [], 'Pull': [], 'Legs': [], 'Core/Accessory': [] };
-    weeklyPlan.filter(p => p.series > 0).forEach(item => { const cat = classifyExercise(item.name, fullExerciseCatalog); categories[cat].push(item); });
+    weeklyPlan.filter(p => p.series > 0).forEach(item => {
+        const cat = classifyExercise(item.name, fullExerciseCatalog);
+        categories[cat].push(item);
+    });
+    
     effectiveDays.forEach((day, idx) => {
         const rotationIdx = idx % 3;
         const targetCat = rotationIdx === 0 ? 'Push' : rotationIdx === 1 ? 'Pull' : 'Legs';
@@ -319,7 +653,12 @@ const App: React.FC = () => {
             const currentTotal = (Object.values(split) as WorkoutExercise[][]).flat().filter(ex => ex.name === item.name).reduce((a,b) => a + (b.sets?.length || b.series), 0);
             if (currentTotal < item.series) {
                 const toAdd = Math.min(seriesPerDay, item.series - currentTotal);
-                const initialSets: WorkoutSet[] = Array.from({ length: toAdd }).map(() => ({ id: Math.random().toString(36).substr(2, 9), reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null }));
+                const initialSets: WorkoutSet[] = Array.from({ length: toAdd }).map(() => ({
+                  id: Math.random().toString(36).substr(2, 9),
+                  reps: 10,
+                  load: null,
+                  rir: activePhase ? activePhase.rirTarget : null
+                }));
                 split[day].push({ id: Date.now() + Math.random(), name: item.name, series: toAdd, sets: initialSets, reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null });
             }
         });
@@ -329,15 +668,46 @@ const App: React.FC = () => {
     setActiveTab('workouts');
   };
 
-  const getPhaseHeaderStyle = () => { if (isDeloadActive) return 'bg-emerald-950/30 border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.15)]'; if (!activePhase) return 'bg-slate-900 border-slate-800'; return 'bg-indigo-950/30 border-indigo-500/30 shadow-none'; };
-  const getPhaseIconStyle = () => { if (isDeloadActive) return 'bg-emerald-600'; if (!activePhase) return 'bg-slate-700'; return 'bg-indigo-600'; };
-  const getVolumeStatusColor = (status?: string) => { switch(status) { case 'MANUTENÇÃO': return 'text-blue-400 bg-blue-400/10 border-blue-400/20'; case 'PRODUTIVO': return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'; case 'OTIMIZADO': return 'text-indigo-400 bg-indigo-400/10 border-indigo-400/20'; case 'LIMITE': return 'text-orange-400 bg-orange-400/10 border-orange-400/20'; default: return 'text-slate-400 bg-slate-400/10 border-slate-400/20'; } };
-  const handleSortPlan = () => setWeeklyPlan(prev => sortExercisesSmartly(prev));
-  const handleSortDay = (day: string) => setWorkouts(prev => ({ ...prev, [day]: sortExercisesSmartly(prev[day]) }));
+  const toggleExpandExercise = (id: number) => {
+    setExpandedExerciseId(prev => prev === id ? null : id);
+  };
+
+  const getPhaseHeaderStyle = () => {
+    if (isDeloadActive) return 'bg-emerald-950/30 border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.15)]';
+    if (!activePhase) return 'bg-slate-900 border-slate-800';
+    return 'bg-indigo-950/30 border-indigo-500/30 shadow-none';
+  };
+
+  const getPhaseIconStyle = () => {
+    if (isDeloadActive) return 'bg-emerald-600';
+    if (!activePhase) return 'bg-slate-700';
+    return 'bg-indigo-600';
+  };
+
+  const getVolumeStatusColor = (status?: string) => {
+    switch(status) {
+      case 'MANUTENÇÃO': return 'text-blue-400 bg-blue-400/10 border-blue-400/20';
+      case 'PRODUTIVO': return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
+      case 'OTIMIZADO': return 'text-indigo-400 bg-indigo-400/10 border-indigo-400/20';
+      case 'LIMITE': return 'text-orange-400 bg-orange-400/10 border-orange-400/20';
+      default: return 'text-slate-400 bg-slate-400/10 border-slate-400/20';
+    }
+  };
+
+  const handleSortPlan = () => {
+    setWeeklyPlan(prev => sortExercisesSmartly(prev));
+  };
+
+  const handleSortDay = (day: string) => {
+    setWorkouts(prev => ({
+        ...prev,
+        [day]: sortExercisesSmartly(prev[day])
+    }));
+  };
 
   return (
     <div className={`min-h-screen pb-24 md:pb-20 transition-colors duration-500 ${isDeloadActive ? 'bg-slate-950' : 'bg-slate-950'}`}>
-      <header className={`backdrop-blur-md border-b sticky top-0 z-50 transition-colors duration-300 ${isDeloadActive ? 'bg-emerald-950/40 border-emerald-900/50' : 'bg-slate-900/80 border-slate-800'}`}>
+      <header className={`backdrop-blur-md border-b sticky top-0 z-40 transition-colors duration-300 ${isDeloadActive ? 'bg-emerald-950/40 border-emerald-900/50' : 'bg-slate-900/80 border-slate-800'}`}>
         <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col lg:flex-row justify-between items-center gap-3">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
@@ -359,8 +729,13 @@ const App: React.FC = () => {
                 </div>
                 <span className={`text-[9px] font-black ${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'} uppercase tracking-widest transition-all`}>{globalStrength.fullLevel}</span>
               </div>
-              <button onClick={() => setShowSettings(true)} className={`w-8 h-8 flex items-center justify-center hover:bg-slate-700 rounded-lg transition-all text-slate-500 ${isDeloadActive ? 'hover:text-emerald-400' : 'hover:text-indigo-400'} active:scale-90`}>
-                <svg className="w-5 h-5 overflow-visible" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+              <button 
+                onClick={() => setShowSettings(true)} 
+                className={`w-8 h-8 flex items-center justify-center hover:bg-slate-700 rounded-lg transition-all text-slate-500 ${isDeloadActive ? 'hover:text-emerald-400' : 'hover:text-indigo-400'} active:scale-90`}
+              >
+                <svg className="w-5 h-5 overflow-visible" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
               </button>
             </div>
           </div>
@@ -382,194 +757,6 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6 md:py-10">
-        
-        {/* =========================================
-            ABA PLANO (COM FLEXBOX PRA COLAR A COLUNA E NOVO BOTAO)
-        ============================================= */}
-        {activeTab === 'plan' && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <section className={`bg-slate-900 border rounded-2xl overflow-hidden shadow-2xl transition-colors ${isDeloadActive ? 'border-emerald-500/30' : 'border-slate-800'}`}>
-              
-              <div className="p-5 md:p-8 border-b border-slate-800 flex flex-wrap justify-between items-center gap-4">
-                <div>
-                  <h2 className="text-lg md:text-2xl font-black text-white">Meta Semanal</h2>
-                  <p className="text-slate-400 text-xs md:text-sm">Volume alvo por grupo muscular, organizado por categoria.</p>
-                </div>
-                <div className="flex gap-4">
-                  <button onClick={handleSortPlan} className={`bg-slate-800 hover:bg-slate-700 px-6 py-3 rounded-xl font-bold flex items-center gap-2 border transition-all ${isDeloadActive ? 'text-emerald-400 border-emerald-500/20' : 'text-indigo-400 border-indigo-500/20'}`}>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"/></svg>
-                    Organizar
-                  </button>
-                  <button onClick={() => setShowCustomExerciseModal(true)} className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 transition-all shadow-lg">
-                     Novo Exercício
-                  </button>
-                  <button onClick={() => { setTargetDay(null); setShowSelector(true); }} className={`px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-xl transition-all ${isDeloadActive ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-indigo-600 hover:bg-indigo-500'} text-white`}>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-                    Adicionar
-                  </button>
-                </div>
-              </div>
-              
-              <div className="relative w-full overflow-x-auto scrollbar-thin">
-                <div className="min-w-max">
-                   
-                   {/* HEADERS */}
-                   <div className="flex bg-slate-900 text-[10px] uppercase font-black text-slate-500 sticky top-0 z-40 border-b border-slate-800">
-                      <div className="p-4 w-64 flex-shrink-0 sticky left-0 bg-slate-950 z-50 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 flex items-center">Exercício</div>
-                      <div className="p-4 w-20 flex-shrink-0 text-center sticky left-64 bg-slate-950 z-50 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 flex items-center justify-center">Séries</div>
-                      {visibleMuscles.map(m => {
-                        const isRelevantToFocusedEx = focusedPlanExerciseId ? (focusedPlanExerciseData?.muscles.some(mu => mu.name === m) ?? false) : false;
-                        const isPrimary = focusedPlanExerciseId ? (focusedPlanExerciseData?.muscles.some(mu => mu.name === m && mu.type === 'principal') ?? false) : false;
-                        return (
-                          <div key={m} className={`p-4 w-24 flex-shrink-0 text-center flex items-center justify-center transition-all duration-300 ${focusedPlanExerciseId ? (isRelevantToFocusedEx ? (isPrimary ? (isDeloadActive ? 'text-emerald-400 bg-emerald-500/10' : 'text-indigo-400 bg-indigo-500/10') : 'text-purple-400 bg-purple-500/10') : 'opacity-20 grayscale') : ''}`}>
-                            {getShortMuscleName(m)}
-                          </div>
-                        );
-                      })}
-                      <div className="p-4 w-12 flex-shrink-0 sticky right-0 bg-slate-900 text-center flex items-center justify-center cursor-pointer hover:bg-slate-800" onClick={() => setShowSecondary(!showSecondary)}>
-                         {showSecondary ? '[-]' : '[+]'}
-                      </div>
-                   </div>
-
-                   {/* CORPO DA TABELA */}
-                   <div className="divide-y divide-slate-800/30">
-                     {weeklyPlan.length === 0 ? (
-                        <div className="p-20 text-center text-slate-500 italic w-full">Comece adicionando exercícios.</div>
-                     ) : (
-                        (Object.entries(groupedPlan) as [string, PlanItem[]][]).map(([category, items]) => {
-                           if (items.length === 0) return null;
-                           const isCollapsed = collapsedCategories.includes(category);
-                           const categorySeries = items.reduce((acc, item) => acc + (item.series || 0), 0);
-
-                           return (
-                              <React.Fragment key={category}>
-                                 {/* ROW DA CATEGORIA */}
-                                 <div className="flex group bg-slate-950 cursor-pointer hover:bg-slate-900 transition-colors border-y border-slate-800/50" onClick={() => toggleCategory(category)}>
-                                    <div className={`p-4 w-64 flex-shrink-0 sticky left-0 bg-slate-950 group-hover:bg-slate-900 z-30 font-black text-xs flex items-center gap-3 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors ${isDeloadActive ? 'text-emerald-300' : 'text-indigo-300'}`}>
-                                       <svg className={`w-4 h-4 transition-transform ${isCollapsed ? '' : 'rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7"/></svg>
-                                       <span>{category.toUpperCase()}</span>
-                                    </div>
-                                    <div className={`p-4 w-20 flex-shrink-0 text-center font-black text-xs sticky left-64 bg-slate-950 group-hover:bg-slate-900 z-30 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 flex items-center justify-center transition-colors ${isDeloadActive ? 'text-emerald-400/60' : 'text-indigo-400/60'}`}>
-                                       {categorySeries}S
-                                    </div>
-                                    <div className="p-4 flex-1 text-[10px] text-slate-600 font-bold uppercase tracking-widest italic flex items-center">
-                                       {items.length} {items.length === 1 ? 'exercício' : 'exercícios'} neste grupo
-                                    </div>
-                                 </div>
-                                 
-                                 {/* ROWS DOS EXERCÍCIOS */}
-                                 {!isCollapsed && items.map(item => {
-                                    const ex = fullExerciseCatalog.find(e => e.name === item.name);
-                                    const isExpanded = expandedExerciseId === item.id;
-                                    const isRowFocused = focusedPlanExerciseId === item.id;
-                                    
-                                    return (
-                                       <React.Fragment key={item.id}>
-                                          <div className={`flex group transition-all cursor-pointer hover:bg-slate-800/30 ${isExpanded ? 'bg-slate-800/40' : 'bg-slate-900'} ${focusedPlanExerciseId && !isRowFocused ? 'opacity-30 grayscale' : ''}`} onClick={() => toggleExpandExercise(item.id)}>
-                                             <div className={`p-3 pl-8 w-64 flex-shrink-0 font-bold text-sm sticky left-0 z-30 flex items-center gap-2 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors bg-slate-950 group-hover:bg-slate-900`}>
-                                                <div className={`w-1 h-4 rounded-full flex-shrink-0 transition-colors ${isRowFocused ? (isDeloadActive ? 'bg-emerald-400' : 'bg-indigo-400') : (isDeloadActive ? 'bg-emerald-500/20' : 'bg-indigo-500/20')}`}></div>
-                                                <span className="truncate flex-1 min-w-0">{item.name}</span>
-                                             </div>
-                                             <div className={`p-2 w-20 flex-shrink-0 sticky left-64 z-30 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 flex items-center justify-center transition-colors bg-slate-950 group-hover:bg-slate-900`} onClick={(e) => e.stopPropagation()}>
-                                                <input 
-                                                   type="number" 
-                                                   value={item.series || ''} 
-                                                   onFocus={(e) => { e.target.select(); setFocusedPlanExerciseId(item.id); }} 
-                                                   onBlur={() => setFocusedPlanExerciseId(null)}
-                                                   onChange={e => updateSeries(item.id, e.target.value === '' ? 0 : parseInt(e.target.value))} 
-                                                   className={`w-full bg-slate-800/50 border rounded-lg p-1.5 text-center font-black outline-none transition-all ${isRowFocused ? (isDeloadActive ? 'border-emerald-500 text-emerald-300 ring-2 ring-emerald-500/20' : 'border-indigo-500 text-indigo-300 ring-2 ring-indigo-500/20') : (isDeloadActive ? 'border-slate-700/30 text-emerald-400' : 'border-slate-700/30 text-indigo-400')}`} 
-                                                />
-                                             </div>
-                                             {visibleMuscles.map(m => {
-                                                const muscleData = ex?.muscles.find(mu => mu.name === m);
-                                                const individualVolume = (item.series || 0) * (muscleData?.contribution || 0);
-                                                const val = muscleData ? individualVolume.toFixed(1) : '-';
-                                                const isCellRelevantToFocusedEx = isRowFocused && muscleData;
-                                                const isPrimaryInCell = muscleData?.type === 'principal';
-                                                return (
-                                                   <div key={m} className={`p-2 w-24 flex-shrink-0 flex items-center justify-center text-xs relative transition-all duration-300 ${val !== '-' ? 'text-slate-100 font-bold' : 'text-slate-700 opacity-20'} ${isCellRelevantToFocusedEx ? (isPrimaryInCell ? (isDeloadActive ? 'bg-emerald-500/20 text-emerald-200 scale-110 shadow-lg shadow-emerald-500/10' : 'bg-indigo-500/20 text-indigo-200 scale-110 shadow-lg shadow-indigo-500/10') : 'bg-purple-500/10 text-purple-300 scale-105') : focusedPlanExerciseId && isRowFocused ? 'opacity-10 scale-95' : ''}`}>
-                                                      <span className="relative z-10">{val}</span>
-                                                      {isCellRelevantToFocusedEx && <div className={`absolute inset-0 border-x ${isPrimaryInCell ? (isDeloadActive ? 'border-emerald-500/30' : 'border-indigo-500/30') : 'border-purple-500/20'}`}></div>}
-                                                   </div>
-                                                );
-                                             })}
-                                             <div className={`p-4 w-12 flex-shrink-0 sticky right-0 text-center flex items-center justify-center transition-colors bg-slate-950 group-hover:bg-slate-900`} onClick={(e) => e.stopPropagation()}>
-                                                <button onClick={() => removeFromPlan(item.id)} className="text-slate-700 hover:text-red-500 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
-                                             </div>
-                                          </div>
-                                          {isExpanded && ex && (
-                                             <div className={`flex bg-slate-900/60 border-l-4 transition-colors ${isDeloadActive ? 'border-emerald-500' : 'border-indigo-500'}`}>
-                                                <div className="p-8 w-full">
-                                                   <div className="max-w-4xl space-y-6 animate-in fade-in slide-in-from-top-2">
-                                                      <div className="flex items-center gap-3">
-                                                         <span className={`text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full border transition-all ${isDeloadActive ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20'}`}>Matriz de Contribuição: {ex.name}</span>
-                                                         <div className="h-px bg-slate-800 flex-1"></div>
-                                                      </div>
-                                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                         {ex.muscles.sort((a,b) => b.contribution - a.contribution).map((m, idx) => (
-                                                            <div key={idx} className={`p-5 rounded-3xl border transition-all ${m.type === 'principal' ? (isDeloadActive ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-indigo-500/5 border-indigo-500/20') : 'bg-slate-800/30 border-slate-700/50'}`}>
-                                                               <div className="flex justify-between items-start">
-                                                                  <div className="flex items-center gap-3">
-                                                                     <div className="w-10 h-10 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-xl">{getMuscleEmoji(m.name)}</div>
-                                                                     <div><h5 className="font-black text-sm text-white">{m.name}</h5><span className={`text-[8px] font-black uppercase tracking-widest ${m.type === 'principal' ? (isDeloadActive ? 'text-emerald-400' : 'text-indigo-400') : 'text-slate-500'}`}>{m.type}</span></div>
-                                                                  </div>
-                                                                  <div className="text-right"><span className="text-lg font-black text-white">{Math.round(m.contribution * 100)}%</span><p className="text-[8px] text-slate-600 font-bold uppercase">Contribuição</p></div>
-                                                               </div>
-                                                            </div>
-                                                         ))}
-                                                      </div>
-                                                   </div>
-                                                </div>
-                                             </div>
-                                          )}
-                                       </React.Fragment>
-                                    );
-                                 })}
-                              </React.Fragment>
-                           );
-                        })
-                     )}
-                   </div>
-
-                   {/* FOOTER (TOTAIS) */}
-                   <div className={`bg-slate-900 font-black border-t-2 sticky bottom-0 z-40 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] transition-colors ${isDeloadActive ? 'border-emerald-500' : 'border-indigo-500'}`}>
-                     <div className="flex">
-                        <div className="p-4 w-64 flex-shrink-0 sticky left-0 bg-slate-950 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 text-xs flex items-center">TOTAIS</div>
-                        <div className={`p-4 w-20 flex-shrink-0 text-center text-lg sticky left-64 bg-slate-950 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 flex items-center justify-center transition-colors ${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'}`}>
-                           {weeklyPlan.reduce((a, b) => a + (b.series || 0), 0)}
-                        </div>
-                        {visibleMuscles.map(m => (
-                           <div key={m} className={`p-4 w-24 flex-shrink-0 text-center tabular-nums flex items-center justify-center transition-colors ${isDeloadActive ? 'text-emerald-300' : 'text-indigo-300'}`}>
-                              {muscleTotals[m].toFixed(1)}
-                           </div>
-                        ))}
-                        <div className="p-4 w-12 flex-shrink-0 sticky right-0 bg-slate-900"></div>
-                     </div>
-                     <div className="flex border-t border-slate-800/50 bg-slate-950">
-                        <div className="p-4 w-64 flex-shrink-0 sticky left-0 bg-slate-950 text-[10px] text-slate-500 uppercase font-black shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 z-40 flex items-center">SAÚDE DO PLANO</div>
-                        <div className="p-4 w-20 flex-shrink-0 sticky left-64 bg-slate-950 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50"></div>
-                        {visibleMuscles.map(m => {
-                           const { label, color, bg, icon } = getVolumeLevelData(m, muscleTotals[m], globalStrength.score);
-                           return (
-                              <div key={m} className="p-3 w-24 flex-shrink-0 text-center uppercase flex items-center justify-center">
-                                 <div className={`flex flex-col items-center gap-1 ${bg} ${color} p-2 rounded-xl border border-white/5 shadow-inner transition-all duration-300`}>
-                                    <span className="text-xs leading-none">{icon}</span>
-                                    <span className="text-[8px] font-black tracking-tighter whitespace-nowrap">{label}</span>
-                                 </div>
-                              </div>
-                           );
-                        })}
-                        <div className="p-4 w-12 flex-shrink-0 sticky right-0 bg-slate-900"></div>
-                     </div>
-                   </div>
-
-                </div>
-              </div>
-            </section>
-          </div>
-        )}
-
-        {/* ... DEMAIS ABAS PERMANECEM INTACTAS DO SEU CÓDIGO ... */}
         {activeTab === 'analysis' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className={`flex flex-col md:flex-row justify-between items-center bg-slate-900 p-6 rounded-3xl border shadow-xl gap-4 transition-colors ${isDeloadActive ? 'border-emerald-500/30' : 'border-slate-800'}`}>
@@ -580,9 +767,24 @@ const App: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex bg-slate-800 p-1.5 rounded-2xl border border-slate-700">
-                      <button onClick={() => setAnalysisView('realtime')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisView === 'realtime' ? (isDeloadActive ? 'bg-emerald-600' : 'bg-indigo-600') + ' text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>Tempo Real</button>
-                      <button onClick={() => setAnalysisView('statistics')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisView === 'statistics' ? (isDeloadActive ? 'bg-emerald-600' : 'bg-indigo-600') + ' text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>Estatísticas</button>
-                      <button onClick={() => setAnalysisView('ia')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisView === 'ia' ? (isDeloadActive ? 'bg-emerald-600' : 'bg-indigo-600') + ' text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>Consultoria IA</button>
+                      <button 
+                        onClick={() => setAnalysisView('realtime')}
+                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisView === 'realtime' ? (isDeloadActive ? 'bg-emerald-600' : 'bg-indigo-600') + ' text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                      >
+                        Tempo Real
+                      </button>
+                      <button 
+                        onClick={() => setAnalysisView('statistics')}
+                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisView === 'statistics' ? (isDeloadActive ? 'bg-emerald-600' : 'bg-indigo-600') + ' text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                      >
+                        Estatísticas
+                      </button>
+                      <button 
+                        onClick={() => setAnalysisView('ia')}
+                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisView === 'ia' ? (isDeloadActive ? 'bg-emerald-600' : 'bg-indigo-600') + ' text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                      >
+                        Consultoria IA
+                      </button>
                   </div>
                 </div>
 
@@ -1241,6 +1443,7 @@ const App: React.FC = () => {
                         const isPartofSuperSet = !!ex.superSetId && !isDeloadActive;
                         const isStart = isPartofSuperSet && (!prevEx || prevEx.superSetId !== ex.superSetId);
                         const isEnd = isPartofSuperSet && (!nextEx || nextEx.superSetId !== ex.superSetId);
+                        const isMiddle = isPartofSuperSet && !isStart && !isEnd;
 
                         const curData = fullExerciseCatalog.find(e => e.name === ex.name);
                         const nxtData = nextEx ? fullExerciseCatalog.find(e => e.name === nextEx.name) : null;
@@ -1415,24 +1618,51 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL DE NOVO EXERCÍCIO CUSTOMIZADO */}
+      {/* =====================================================================
+          NOVO MODAL DE GERENCIAMENTO E CRIAÇÃO DE EXERCÍCIOS CUSTOMIZADOS
+      ========================================================================= */}
       {showCustomExerciseModal && (
           <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto">
-              <div className="bg-slate-900 rounded-[2.5rem] shadow-2xl p-8 w-full max-w-3xl border border-slate-700 animate-in zoom-in-95 duration-200">
-                  <h3 className="text-2xl font-black text-white mb-6 uppercase tracking-tighter">Novo Exercício Personalizado</h3>
+              <div className="bg-slate-900 rounded-[2.5rem] shadow-2xl p-8 w-full max-w-3xl border border-slate-700 animate-in zoom-in-95 duration-200 my-8">
+                  <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-2xl font-black text-white uppercase tracking-tighter">
+                          {editingExerciseName ? "Editar Exercício" : "Criar Exercício"}
+                      </h3>
+                      <button onClick={() => { setShowCustomExerciseModal(false); setEditingExerciseName(null); setNewCustomExercise({name: '', muscles: {}, isCompound: true, isGuided: false}); }} className="text-slate-500 hover:text-white transition-colors">
+                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                  </div>
                   
                   <input 
                     type="text" 
                     value={newCustomExercise.name} 
                     onChange={(e) => setNewCustomExercise(prev => ({ ...prev, name: e.target.value }))} 
-                    className="w-full p-4 rounded-2xl bg-slate-800 border border-slate-700 text-white mb-8 focus:ring-2 focus:ring-indigo-500 outline-none font-bold" 
+                    className="w-full p-4 rounded-2xl bg-slate-800 border border-slate-700 text-white mb-6 focus:ring-2 focus:ring-indigo-500 outline-none font-bold" 
                     placeholder="Ex: Supino Declinado Articulado" 
                   />
+
+                  {/* NOVOS CONTROLES: LIVRE vs MÁQUINA e MULTI vs ISOLADO */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                      <div>
+                          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Mecânica do Movimento</h4>
+                          <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
+                             <button onClick={() => setNewCustomExercise(p => ({...p, isCompound: true}))} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${newCustomExercise.isCompound ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>Multiarticular</button>
+                             <button onClick={() => setNewCustomExercise(p => ({...p, isCompound: false}))} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${!newCustomExercise.isCompound ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>Isolado</button>
+                          </div>
+                      </div>
+                      <div>
+                          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Tipo de Carga</h4>
+                          <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
+                             <button onClick={() => setNewCustomExercise(p => ({...p, isGuided: false}))} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${!newCustomExercise.isGuided ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>Peso Livre</button>
+                             <button onClick={() => setNewCustomExercise(p => ({...p, isGuided: true}))} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${newCustomExercise.isGuided ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>Máquina/Cabo</button>
+                          </div>
+                      </div>
+                  </div>
                   
                   <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Contribuição Muscular (%)</h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-64 overflow-y-auto pr-2 mb-8 scrollbar-thin">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-48 overflow-y-auto pr-2 mb-6 scrollbar-thin">
                       {MUSCLE_SORT_ORDER.map(muscle => (
-                          <div key={muscle} className="bg-slate-950/50 p-3 rounded-xl border border-slate-800 flex flex-col justify-between">
+                          <div key={muscle} className={`p-3 rounded-xl border flex flex-col justify-between transition-colors ${(newCustomExercise.muscles[muscle] || 0) > 0 ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-slate-950/50 border-slate-800'}`}>
                               <label className="block text-[9px] font-bold text-slate-400 mb-2 truncate uppercase tracking-widest" title={muscle}>
                                 {getShortMuscleName(muscle)}
                               </label>
@@ -1444,24 +1674,49 @@ const App: React.FC = () => {
                                   className="w-full p-2 bg-slate-800 rounded-lg text-white text-center text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-black" 
                                   placeholder="0" 
                                 />
-                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-bold">%</span>
+                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-bold pointer-events-none">%</span>
                               </div>
                           </div>
                       ))}
                   </div>
                   
                   <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
-                      <button onClick={() => setShowCustomExerciseModal(false)} className="px-6 py-3 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 font-bold transition-all text-xs uppercase tracking-widest">
-                        Cancelar
-                      </button>
+                      {editingExerciseName && (
+                          <button onClick={() => { setEditingExerciseName(null); setNewCustomExercise({name: '', muscles: {}, isCompound: true, isGuided: false}); }} className="px-6 py-3 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 font-bold transition-all text-xs uppercase tracking-widest">
+                            Cancelar Edição
+                          </button>
+                      )}
                       <button 
-                        onClick={addCustomExercise} 
+                        onClick={saveCustomExercise} 
                         disabled={!newCustomExercise.name} 
                         className="px-6 py-3 rounded-xl bg-indigo-600 text-white font-bold shadow-lg hover:bg-indigo-500 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-xs uppercase tracking-widest"
                       >
-                        Salvar Exercício
+                        {editingExerciseName ? 'Atualizar Exercício' : 'Salvar Novo Exercício'}
                       </button>
                   </div>
+
+                  {/* LISTAGEM DOS EXERCÍCIOS CRIADOS PARA EDIÇÃO/EXCLUSÃO */}
+                  {customExercises.length > 0 && (
+                      <div className="mt-8 pt-6 border-t border-slate-800">
+                          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Gerenciar Meus Exercícios</h4>
+                          <div className="space-y-3 max-h-48 overflow-y-auto pr-2 scrollbar-thin">
+                              {customExercises.map(ex => (
+                                  <div key={ex.name} className="flex justify-between items-center bg-slate-800/30 border border-slate-700/50 p-3 rounded-xl">
+                                      <div>
+                                          <span className="text-sm font-bold text-white block">{ex.name}</span>
+                                          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5 block">
+                                              {ex.isCompound ? 'Multiarticular' : 'Isolado'} • {ex.isGuided ? 'Máquina/Cabo' : 'Peso Livre'}
+                                          </span>
+                                      </div>
+                                      <div className="flex gap-2">
+                                          <button onClick={() => loadExerciseForEdit(ex)} className="px-3 py-1.5 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors">Editar</button>
+                                          <button onClick={() => removeCustomExercise(ex.name)} className="px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors">Excluir</button>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  )}
               </div>
           </div>
       )}
