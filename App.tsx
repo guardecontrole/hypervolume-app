@@ -33,6 +33,8 @@ import {
   calculate1RM, 
   getExerciseCategory 
 } from './utils/helpers';
+
+// IMPORT DOS MODAIS (Mantendo a estrutura do seu projeto)
 import { ExerciseSelectorModal } from './components/ExerciseSelectorModal';
 import { PlanImporterModal } from './components/PlanImporterModal';
 import { WorkoutRow } from './components/WorkoutRow';
@@ -63,7 +65,9 @@ const App: React.FC = () => {
     reps: 0
   });
 
-  // ESTADOS DO NOVO GERENCIADOR DE EXERCÍCIOS CUSTOMIZADOS
+  // =========================================================================
+  // STATE: EXERCÍCIOS CUSTOMIZADOS
+  // =========================================================================
   const [customExercises, setCustomExercises] = useState<Exercise[]>([]);
   const [showCustomExerciseModal, setShowCustomExerciseModal] = useState(false);
   const [editingExerciseName, setEditingExerciseName] = useState<string | null>(null);
@@ -75,7 +79,6 @@ const App: React.FC = () => {
   }>({ name: '', muscles: {}, isCompound: true, isGuided: false });
 
   const [superSetSelection, setSuperSetSelection] = useState<{ day: string, sourceId: number } | null>(null);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showSelector, setShowSelector] = useState(false);
   const [showImporter, setShowImporter] = useState(false);
@@ -89,10 +92,7 @@ const App: React.FC = () => {
   const [draggedItem, setDraggedItem] = useState<{ exercise: WorkoutExercise, fromDay: string } | null>(null);
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
   const [analysisView, setAnalysisView] = useState<'realtime' | 'statistics' | 'ia'>('realtime');
-  const [expandedExerciseId, setExpandedExerciseId] = useState<number | null>(null);
   const [collapsedCategories, setCollapsedCategories] = useState<string[]>([]);
-  const [focusedPlanExerciseId, setFocusedPlanExerciseId] = useState<number | null>(null);
-
   const [achievement, setAchievement] = useState<any>(null);
 
   useEffect(() => {
@@ -146,33 +146,19 @@ const App: React.FC = () => {
     localStorage.setItem('hv_custom_exercises', JSON.stringify(customExercises));
   }, [weeklyPlan, workouts, workoutHistory, activePhaseId, currentWeek, userName, strengthProfiles, strengthInputs.bw, manualRir, manualProgression, manualMethodology, activeDays, isDeloadActive, customExercises, isMounted]);
 
-  // COMBINA EXERCÍCIOS NATIVOS COM OS SEUS PERSONALIZADOS
+  // COMBINA EXERCÍCIOS NATIVOS COM OS PERSONALIZADOS
   const fullExerciseCatalog = useMemo(() => {
       return [...PREDEFINED_EXERCISES, ...customExercises];
   }, [customExercises]);
 
   const activePhase = useMemo(() => {
     const basePhase = PERIODIZATION_PHASES.find(p => p.id === activePhaseId) || null;
-    if (basePhase?.id === 'f_manual') {
-      return { 
-        ...basePhase, 
-        rirTarget: manualRir, 
-        progressionRule: manualProgression,
-        description: manualMethodology || basePhase.description 
-      };
-    }
+    if (basePhase?.id === 'f_manual') return { ...basePhase, rirTarget: manualRir, progressionRule: manualProgression, description: manualMethodology || basePhase.description };
     return basePhase;
   }, [activePhaseId, manualRir, manualProgression, manualMethodology]);
 
-  const strengthResult = useMemo(() => 
-    calculateStrengthLevel(strengthInputs.exercise, strengthInputs.bw, strengthInputs.load, strengthInputs.reps),
-    [strengthInputs]
-  );
-
-  const globalStrength = useMemo(() => 
-    calculateGlobalStrengthLevel(strengthProfiles, strengthInputs.bw || 80),
-    [strengthProfiles, strengthInputs.bw]
-  );
+  const strengthResult = useMemo(() => calculateStrengthLevel(strengthInputs.exercise, strengthInputs.bw, strengthInputs.load, strengthInputs.reps), [strengthInputs]);
+  const globalStrength = useMemo(() => calculateGlobalStrengthLevel(strengthProfiles, strengthInputs.bw || 80), [strengthProfiles, strengthInputs.bw]);
 
   const visibleMuscles = useMemo(() => {
     return showSecondary ? MUSCLE_SORT_ORDER : MUSCLE_SORT_ORDER.filter(m => !SECONDARY_MUSCLES.includes(m));
@@ -185,32 +171,22 @@ const App: React.FC = () => {
       const ex = fullExerciseCatalog.find(e => e.name === item.name);
       if (ex) {
         ex.muscles.forEach(m => {
-          if(totals[m.name] !== undefined) {
-             totals[m.name] += (item.series || 0) * m.contribution;
-          }
+          if(totals[m.name] !== undefined) totals[m.name] += (item.series || 0) * m.contribution;
         });
       }
     });
     return totals;
   }, [weeklyPlan, fullExerciseCatalog]);
 
-  const focusedPlanExerciseData = useMemo(() => {
-    if (!focusedPlanExerciseId) return null;
-    const item = weeklyPlan.find(p => p.id === focusedPlanExerciseId);
-    return item ? fullExerciseCatalog.find(ex => ex.name === item.name) : null;
-  }, [focusedPlanExerciseId, weeklyPlan, fullExerciseCatalog]);
-
   const groupedPlan = useMemo(() => {
     const groups: Record<string, PlanItem[]> = {};
     CATEGORY_ORDER.forEach(cat => groups[cat] = []);
-    
     weeklyPlan.forEach(item => {
       const ex = fullExerciseCatalog.find(e => e.name === item.name);
       const cat = ex ? getExerciseCategory(ex) : 'Outros';
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(item);
     });
-    
     return groups;
   }, [weeklyPlan, fullExerciseCatalog]);
 
@@ -219,44 +195,25 @@ const App: React.FC = () => {
 
   const macrocycles = useMemo(() => {
     const order = ['INÍCIO', 'FORÇA', 'REALIZAÇÃO', 'RESISTÊNCIA', 'HIPERTROFIA'];
-    const stages = Array.from(new Set(PERIODIZATION_PHASES.map(p => p.stage)))
-      .sort((a, b) => order.indexOf(a) - order.indexOf(b));
-      
-    return stages.map(stage => ({
-      name: stage,
-      phases: PERIODIZATION_PHASES.filter(p => p.stage === stage)
-    }));
+    const stages = Array.from(new Set(PERIODIZATION_PHASES.map(p => p.stage))).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    return stages.map(stage => ({ name: stage, phases: PERIODIZATION_PHASES.filter(p => p.stage === stage) }));
   }, []);
 
   const todayName = useMemo(() => {
     const idx = new Date().getDay();
-    const normalizedIdx = idx === 0 ? 6 : idx - 1;
-    return DAYS_OF_WEEK[normalizedIdx];
+    return DAYS_OF_WEEK[idx === 0 ? 6 : idx - 1];
   }, []);
 
-  const toggleDay = (day: string) => {
-    setActiveDays(prev => 
-      prev.includes(day) 
-        ? prev.filter(d => d !== day) 
-        : [...prev].sort((a, b) => DAYS_OF_WEEK.indexOf(a) - DAYS_OF_WEEK.indexOf(b)).concat(day).sort((a, b) => DAYS_OF_WEEK.indexOf(a) - DAYS_OF_WEEK.indexOf(b))
-    );
-  };
-
-  const toggleCategory = (cat: string) => {
-    setCollapsedCategories(prev => 
-      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-    );
-  };
+  const toggleDay = (day: string) => setActiveDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev].sort((a, b) => DAYS_OF_WEEK.indexOf(a) - DAYS_OF_WEEK.indexOf(b)).concat(day).sort((a, b) => DAYS_OF_WEEK.indexOf(a) - DAYS_OF_WEEK.indexOf(b)));
+  const toggleCategory = (cat: string) => setCollapsedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
 
   // =========================================================================
   // LOGICA DO GERENCIADOR DE EXERCÍCIOS CUSTOMIZADOS
   // =========================================================================
   const saveCustomExercise = useCallback(() => {
       if (!newCustomExercise.name) return;
-      
       const nameTrimmed = newCustomExercise.name.trim();
 
-      // Checa se já existe um exercício com este nome (e não estamos editando ele)
       if (!editingExerciseName && fullExerciseCatalog.some(ex => ex.name.toLowerCase() === nameTrimmed.toLowerCase())) {
           alert("Já existe um exercício com este nome no catálogo.");
           return;
@@ -283,13 +240,10 @@ const App: React.FC = () => {
       };
 
       setCustomExercises(prev => {
-          if (editingExerciseName) {
-              return prev.map(ex => ex.name === editingExerciseName ? newCustomEx : ex);
-          }
+          if (editingExerciseName) return prev.map(ex => ex.name === editingExerciseName ? newCustomEx : ex);
           return [...prev, newCustomEx];
       });
 
-      // Atualiza planos e treinos caso o usuário tenha alterado o NOME de um exercício já salvo
       if (editingExerciseName && editingExerciseName !== nameTrimmed) {
           setWeeklyPlan(prev => prev.map(p => p.name === editingExerciseName ? { ...p, name: nameTrimmed } : p));
           setWorkouts(prev => {
@@ -301,7 +255,6 @@ const App: React.FC = () => {
           });
       }
 
-      // Reseta o form, mas mantém o modal aberto para ver a lista atualizada
       setNewCustomExercise({ name: '', muscles: {}, isCompound: true, isGuided: false });
       setEditingExerciseName(null);
   }, [newCustomExercise, editingExerciseName, fullExerciseCatalog]);
@@ -309,13 +262,7 @@ const App: React.FC = () => {
   const loadExerciseForEdit = (ex: Exercise) => {
       const musclesMap: Record<string, number> = {};
       ex.muscles.forEach(m => musclesMap[m.name] = m.contribution * 100);
-      
-      setNewCustomExercise({
-          name: ex.name,
-          muscles: musclesMap,
-          isCompound: ex.isCompound !== false, // default true se for undefined
-          isGuided: !!ex.isGuided
-      });
+      setNewCustomExercise({ name: ex.name, muscles: musclesMap, isCompound: ex.isCompound !== false, isGuided: !!ex.isGuided });
       setEditingExerciseName(ex.name);
   };
 
@@ -331,120 +278,32 @@ const App: React.FC = () => {
 
   // =========================================================================
 
-  const handleInitiateSuperSet = (day: string, id: number) => {
-    if (isDeloadActive) return;
-    setSuperSetSelection({ day, sourceId: id });
-  };
-
-  const handleQuickLink = (day: string, currentId: number, nextId: number) => {
-    if (isDeloadActive) return;
-    const newSuperSetId = Math.random().toString(36).substr(2, 9);
-    setWorkouts(prev => ({
-      ...prev,
-      [day]: prev[day].map(ex => 
-        (ex.id === currentId || ex.id === nextId)
-          ? { ...ex, superSetId: newSuperSetId }
-          : ex
-      )
-    }));
-  };
-
+  const handleInitiateSuperSet = (day: string, id: number) => { if (isDeloadActive) return; setSuperSetSelection({ day, sourceId: id }); };
+  const handleQuickLink = (day: string, currentId: number, nextId: number) => { if (isDeloadActive) return; const newSuperSetId = Math.random().toString(36).substr(2, 9); setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => (ex.id === currentId || ex.id === nextId) ? { ...ex, superSetId: newSuperSetId } : ex) })); };
   const handleExerciseClick = (day: string, targetId: number) => {
     if (!superSetSelection || isDeloadActive) return;
-
-    if (superSetSelection.day !== day) {
-      alert("Selecione um exercício do mesmo dia.");
-      setSuperSetSelection(null);
-      return;
-    }
-
-    if (superSetSelection.sourceId === targetId) {
-      setSuperSetSelection(null);
-      return;
-    }
-
+    if (superSetSelection.day !== day) { alert("Selecione um exercício do mesmo dia."); setSuperSetSelection(null); return; }
+    if (superSetSelection.sourceId === targetId) { setSuperSetSelection(null); return; }
     const targetEx = workouts[day].find(ex => ex.id === targetId);
     const exData = fullExerciseCatalog.find(e => e.name === targetEx?.name);
-    
-    if (exData?.isCompound && !exData?.isGuided) {
-      alert("Proibido: Super Sets são permitidos apenas para exercícios Metabólicos (Máquinas ou Isolados).");
-      setSuperSetSelection(null);
-      return;
-    }
-
+    if (exData?.isCompound && !exData?.isGuided) { alert("Proibido: Super Sets são permitidos apenas para exercícios Metabólicos (Máquinas ou Isolados)."); setSuperSetSelection(null); return; }
     const newSuperSetId = Math.random().toString(36).substr(2, 9);
-    setWorkouts(prev => ({
-      ...prev,
-      [day]: prev[day].map(ex => 
-        (ex.id === superSetSelection.sourceId || targetId === ex.id)
-          ? { ...ex, superSetId: newSuperSetId }
-          : ex
-      )
-    }));
+    setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => (ex.id === superSetSelection.sourceId || targetId === ex.id) ? { ...ex, superSetId: newSuperSetId } : ex) }));
     setSuperSetSelection(null);
   };
+  const handleBreakSuperSet = (day: string, superSetId: string) => { setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => ex.superSetId === superSetId ? { ...ex, superSetId: undefined } : ex) })); };
 
-  const handleBreakSuperSet = (day: string, superSetId: string) => {
-    setWorkouts(prev => ({
-      ...prev,
-      [day]: prev[day].map(ex => 
-        ex.superSetId === superSetId 
-          ? { ...ex, superSetId: undefined } 
-          : ex
-      )
-    }));
-  };
-
-  const handleExportBackup = () => {
-    const allData = { ...localStorage };
-    const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    const today = new Date().toISOString().split('T')[0];
-    link.download = `backup_hypervolume_${today}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImportBackup = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const backupData = JSON.parse(e.target?.result as string);
-        
-        if (window.confirm("Atenção: A importação substituirá todos os seus dados atuais. O aplicativo será reiniciado. Deseja continuar?")) {
-          localStorage.clear();
-          Object.keys(backupData).forEach((key) => {
-            localStorage.setItem(key, backupData[key]);
-          });
-          alert('Backup restaurado com sucesso! O app será reiniciado.');
-          window.location.reload(); 
-        }
-      } catch (error) {
-        alert('Erro ao ler o arquivo de backup. Verifique se é um JSON válido.');
-        console.error(error);
-      }
-    };
-    reader.readAsText(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
+  const handleExportBackup = () => { const allData = { ...localStorage }; const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = `backup_hypervolume_${new Date().toISOString().split('T')[0]}.json`; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url); };
+  const handleImportBackup = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { const backupData = JSON.parse(e.target?.result as string); if (window.confirm("Atenção: A importação substituirá todos os seus dados atuais. O aplicativo será reiniciado. Deseja continuar?")) { localStorage.clear(); Object.keys(backupData).forEach((key) => localStorage.setItem(key, backupData[key])); alert('Backup restaurado com sucesso!'); window.location.reload(); } } catch (error) { alert('Erro ao ler o arquivo de backup.'); } }; reader.readAsText(file); if (fileInputRef.current) fileInputRef.current.value = ''; };
 
   if (!isMounted) return null;
 
   const monitorPRs = (newLog: WorkoutLog) => {
     const exercisesToCheck = ['Supino', 'Agachamento', 'Levantamento Terra', 'Remada Curvada'];
     const bw = strengthInputs.bw || 80;
-    
     let updatedProfiles = { ...strengthProfiles };
     let foundNewPR = false;
     let achievementData = null;
-
     const oldGlobal = calculateGlobalStrengthLevel(updatedProfiles, bw);
 
     Object.values(newLog.split).flat().forEach((ex: WorkoutExercise) => {
@@ -452,103 +311,19 @@ const App: React.FC = () => {
       if (baseExName) {
         const currentPR = updatedProfiles[baseExName] || 0;
         let best1RMInSesssion = 0;
-
-        if (ex.sets && ex.sets.length > 0) {
-          ex.sets.forEach(set => {
-            if (set.load && set.reps > 0) {
-              const calc = calculate1RM(set.load, set.reps);
-              if (calc > best1RMInSesssion) best1RMInSesssion = calc;
-            }
-          });
-        } else if (ex.load && ex.reps > 0) {
-          best1RMInSesssion = calculate1RM(ex.load, ex.reps);
-        }
-
-        if (best1RMInSesssion > currentPR + 0.1) {
-          updatedProfiles[baseExName] = best1RMInSesssion;
-          foundNewPR = true;
-          
-          const newGlobal = calculateGlobalStrengthLevel(updatedProfiles, bw);
-          achievementData = {
-            exercise: baseExName,
-            old1RM: currentPR,
-            new1RM: best1RMInSesssion,
-            oldScore: oldGlobal.score,
-            newScore: newGlobal.score,
-            oldLevel: oldGlobal.fullLevel,
-            newLevel: newGlobal.fullLevel,
-            changedLevel: oldGlobal.name !== newGlobal.name
-          };
-        }
+        if (ex.sets && ex.sets.length > 0) { ex.sets.forEach(set => { if (set.load && set.reps > 0) { const calc = calculate1RM(set.load, set.reps); if (calc > best1RMInSesssion) best1RMInSesssion = calc; } }); } else if (ex.load && ex.reps > 0) { best1RMInSesssion = calculate1RM(ex.load, ex.reps); }
+        if (best1RMInSesssion > currentPR + 0.1) { updatedProfiles[baseExName] = best1RMInSesssion; foundNewPR = true; const newGlobal = calculateGlobalStrengthLevel(updatedProfiles, bw); achievementData = { exercise: baseExName, old1RM: currentPR, new1RM: best1RMInSesssion, oldScore: oldGlobal.score, newScore: newGlobal.score, oldLevel: oldGlobal.fullLevel, newLevel: newGlobal.fullLevel, changedLevel: oldGlobal.name !== newGlobal.name }; }
       }
     });
 
-    if (foundNewPR) {
-      setStrengthProfiles(updatedProfiles);
-      setAchievement(achievementData);
-    }
+    if (foundNewPR) { setStrengthProfiles(updatedProfiles); setAchievement(achievementData); }
   };
 
-  const handleSaveExercise = (day: string, exercise: WorkoutExercise) => {
-    const newLog: WorkoutLog = {
-      id: Date.now(),
-      date: new Date().toISOString(),
-      name: `Log: ${exercise.name}`,
-      totalSeries: exercise.sets?.length || exercise.series || 0,
-      split: { [day]: [JSON.parse(JSON.stringify(exercise))] },
-      phase: activePhase?.name,
-      week: currentWeek
-    };
-    monitorPRs(newLog);
-    setWorkoutHistory(prev => [newLog, ...prev]);
-  };
-
-  const saveStrengthRecord = () => {
-     if (strengthResult.oneRM > 0) {
-       setStrengthProfiles(prev => ({
-           ...prev,
-           [strengthInputs.exercise]: strengthResult.oneRM
-       }));
-       alert(`1RM de ${strengthInputs.exercise} atualizado: ${strengthResult.oneRM.toFixed(1)}kg`);
-     }
-  };
-
-  const handlePhaseActivation = (phaseId: string) => {
-      setActivePhaseId(phaseId);
-      setCurrentWeek(1);
-  };
-
-  const addToPlan = (name: string) => {
-    setWeeklyPlan(prev => {
-        if (prev.find(p => p.name === name)) return prev;
-        return [...prev, { id: Date.now(), name, series: 0 }];
-    });
-  };
-
-  const addToDay = (day: string, name: string, series?: number) => {
-    const sCount = series || 3;
-    const initialSets: WorkoutSet[] = Array.from({ length: sCount }).map(() => ({
-      id: Math.random().toString(36).substr(2, 9),
-      reps: 10,
-      load: null,
-      rir: activePhase ? activePhase.rirTarget : null
-    }));
-
-    setWorkouts(prev => {
-        const newEx: WorkoutExercise = { 
-            id: Date.now() + Math.random(), 
-            name, 
-            series: sCount, 
-            sets: initialSets,
-            reps: 10, 
-            load: null, 
-            rir: activePhase ? activePhase.rirTarget : null 
-        };
-        const currentDayExs = prev[day] || [];
-        return {...prev, [day]: [...currentDayExs, newEx]};
-    });
-  };
-
+  const handleSaveExercise = (day: string, exercise: WorkoutExercise) => { const newLog: WorkoutLog = { id: Date.now(), date: new Date().toISOString(), name: `Log: ${exercise.name}`, totalSeries: exercise.sets?.length || exercise.series || 0, split: { [day]: [JSON.parse(JSON.stringify(exercise))] }, phase: activePhase?.name, week: currentWeek }; monitorPRs(newLog); setWorkoutHistory(prev => [newLog, ...prev]); };
+  const saveStrengthRecord = () => { if (strengthResult.oneRM > 0) { setStrengthProfiles(prev => ({ ...prev, [strengthInputs.exercise]: strengthResult.oneRM })); alert(`1RM de ${strengthInputs.exercise} atualizado: ${strengthResult.oneRM.toFixed(1)}kg`); } };
+  const handlePhaseActivation = (phaseId: string) => { setActivePhaseId(phaseId); setCurrentWeek(1); };
+  const addToPlan = (name: string) => { setWeeklyPlan(prev => { if (prev.find(p => p.name === name)) return prev; return [...prev, { id: Date.now(), name, series: 0 }]; }); };
+  const addToDay = (day: string, name: string, series?: number) => { const sCount = series || 3; const initialSets: WorkoutSet[] = Array.from({ length: sCount }).map(() => ({ id: Math.random().toString(36).substr(2, 9), reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null })); setWorkouts(prev => { const newEx: WorkoutExercise = { id: Date.now() + Math.random(), name, series: sCount, sets: initialSets, reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null }; const currentDayExs = prev[day] || []; return {...prev, [day]: [...currentDayExs, newEx]}; }); };
   const updateSeries = (id: number, series: number) => setWeeklyPlan(prev => prev.map(p => p.id === id ? { ...p, series } : p));
   const removeFromPlan = (id: number) => setWeeklyPlan(prev => prev.filter(p => p.id !== id));
   const updateWorkoutEx = (day: string, id: number, data: Partial<WorkoutExercise>) => setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => ex.id === id ? { ...ex, ...data } : ex)}));
@@ -558,92 +333,24 @@ const App: React.FC = () => {
     const allExs = (Object.values(workouts) as WorkoutExercise[][]).reduce((acc: WorkoutExercise[], v) => acc.concat(v), []);
     const totalSeries = allExs.reduce((acc, ex) => acc + (ex.sets?.length || ex.series || 0), 0);
     if (totalSeries === 0) return;
-
-    const newLog: WorkoutLog = {
-      id: Date.now(),
-      date: new Date().toISOString(),
-      name: logName || `S${currentWeek} - ${activePhase?.name || 'Geral'}`,
-      totalSeries,
-      split: JSON.parse(JSON.stringify(workouts)),
-      phase: activePhase?.name,
-      week: currentWeek
-    };
-    
-    monitorPRs(newLog);
-    setWorkoutHistory(prev => [newLog, ...prev]);
-    setIsSaveModalOpen(false);
-    setLogName('');
-    setSaveButtonText('✅ Salvo!');
-    setCurrentWeek(prev => prev < 4 ? prev + 1 : 1);
-    setTimeout(() => setSaveButtonText('💾 Salvar Semana'), 2000);
+    const newLog: WorkoutLog = { id: Date.now(), date: new Date().toISOString(), name: logName || `S${currentWeek} - ${activePhase?.name || 'Geral'}`, totalSeries, split: JSON.parse(JSON.stringify(workouts)), phase: activePhase?.name, week: currentWeek };
+    monitorPRs(newLog); setWorkoutHistory(prev => [newLog, ...prev]); setIsSaveModalOpen(false); setLogName(''); setSaveButtonText('✅ Salvo!'); setCurrentWeek(prev => prev < 4 ? prev + 1 : 1); setTimeout(() => setSaveButtonText('💾 Salvar Semana'), 2000);
   };
 
-  const handleApplyReturn = (newSplit: WorkoutSplit, phaseId: string) => {
-    setWorkouts(newSplit);
-    setActivePhaseId(phaseId);
-    setCurrentWeek(1);
-    setActiveTab('workouts');
-  };
-
-  const removeHistoryItem = (id: number) => {
-    if (window.confirm("Tem certeza que deseja excluir este treino?")) {
-      setWorkoutHistory(prev => prev.filter(item => item.id !== id));
-    }
-  };
-
-  const clearHistory = () => {
-    if (window.confirm("Tem certeza que deseja apagar TODO o histórico? Essa ação é irreversível.")) {
-      setWorkoutHistory([]);
-    }
-  };
-
-  const handleDragStart = (exercise: WorkoutExercise, fromDay: string) => {
-    if (isDeloadActive) return;
-    setDraggedItem({ exercise, fromDay });
-  };
-
-  const handleDragOver = (e: React.DragEvent, day: string) => {
-    e.preventDefault();
-    if (isDeloadActive) return;
-    setDragOverDay(day);
-  };
-
-  const handleDragLeave = () => {
-    setDragOverDay(null);
-  };
-
-  const handleDrop = (e: React.DragEvent, toDay: string) => {
-    e.preventDefault();
-    setDragOverDay(null);
-    if (!draggedItem || draggedItem.fromDay === toDay || isDeloadActive) {
-      setDraggedItem(null);
-      return;
-    }
-
-    setWorkouts(prev => {
-      const sourceDayExs = (prev[draggedItem.fromDay] || []).filter(ex => ex.id !== draggedItem.exercise.id);
-      const targetDayExs = [...(prev[toDay] || []), draggedItem.exercise];
-      
-      return {
-        ...prev,
-        [draggedItem.fromDay]: sourceDayExs,
-        [toDay]: targetDayExs
-      };
-    });
-    setDraggedItem(null);
-  };
+  const handleApplyReturn = (newSplit: WorkoutSplit, phaseId: string) => { setWorkouts(newSplit); setActivePhaseId(phaseId); setCurrentWeek(1); setActiveTab('workouts'); };
+  const removeHistoryItem = (id: number) => { if (window.confirm("Excluir este treino?")) setWorkoutHistory(prev => prev.filter(item => item.id !== id)); };
+  const clearHistory = () => { if (window.confirm("Apagar TODO o histórico?")) setWorkoutHistory([]); };
+  const handleDragStart = (exercise: WorkoutExercise, fromDay: string) => { if (isDeloadActive) return; setDraggedItem({ exercise, fromDay }); };
+  const handleDragOver = (e: React.DragEvent, day: string) => { e.preventDefault(); if (isDeloadActive) return; setDragOverDay(day); };
+  const handleDragLeave = () => { setDragOverDay(null); };
+  const handleDrop = (e: React.DragEvent, toDay: string) => { e.preventDefault(); setDragOverDay(null); if (!draggedItem || draggedItem.fromDay === toDay || isDeloadActive) { setDraggedItem(null); return; } setWorkouts(prev => { const sourceDayExs = (prev[draggedItem.fromDay] || []).filter(ex => ex.id !== draggedItem.exercise.id); const targetDayExs = [...(prev[toDay] || []), draggedItem.exercise]; return { ...prev, [draggedItem.fromDay]: sourceDayExs, [toDay]: targetDayExs }; }); setDraggedItem(null); };
 
   const generateSmartSplit = () => {
     const split: WorkoutSplit = {};
     const effectiveDays = activeDays.length > 0 ? activeDays : DAYS_OF_WEEK.slice(0, 4);
     effectiveDays.forEach(d => split[d] = []);
-    
     const categories: Record<string, PlanItem[]> = { 'Push': [], 'Pull': [], 'Legs': [], 'Core/Accessory': [] };
-    weeklyPlan.filter(p => p.series > 0).forEach(item => {
-        const cat = classifyExercise(item.name, fullExerciseCatalog);
-        categories[cat].push(item);
-    });
-    
+    weeklyPlan.filter(p => p.series > 0).forEach(item => { const cat = classifyExercise(item.name, fullExerciseCatalog); categories[cat].push(item); });
     effectiveDays.forEach((day, idx) => {
         const rotationIdx = idx % 3;
         const targetCat = rotationIdx === 0 ? 'Push' : rotationIdx === 1 ? 'Pull' : 'Legs';
@@ -653,12 +360,7 @@ const App: React.FC = () => {
             const currentTotal = (Object.values(split) as WorkoutExercise[][]).flat().filter(ex => ex.name === item.name).reduce((a,b) => a + (b.sets?.length || b.series), 0);
             if (currentTotal < item.series) {
                 const toAdd = Math.min(seriesPerDay, item.series - currentTotal);
-                const initialSets: WorkoutSet[] = Array.from({ length: toAdd }).map(() => ({
-                  id: Math.random().toString(36).substr(2, 9),
-                  reps: 10,
-                  load: null,
-                  rir: activePhase ? activePhase.rirTarget : null
-                }));
+                const initialSets: WorkoutSet[] = Array.from({ length: toAdd }).map(() => ({ id: Math.random().toString(36).substr(2, 9), reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null }));
                 split[day].push({ id: Date.now() + Math.random(), name: item.name, series: toAdd, sets: initialSets, reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null });
             }
         });
@@ -668,42 +370,11 @@ const App: React.FC = () => {
     setActiveTab('workouts');
   };
 
-  const toggleExpandExercise = (id: number) => {
-    setExpandedExerciseId(prev => prev === id ? null : id);
-  };
-
-  const getPhaseHeaderStyle = () => {
-    if (isDeloadActive) return 'bg-emerald-950/30 border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.15)]';
-    if (!activePhase) return 'bg-slate-900 border-slate-800';
-    return 'bg-indigo-950/30 border-indigo-500/30 shadow-none';
-  };
-
-  const getPhaseIconStyle = () => {
-    if (isDeloadActive) return 'bg-emerald-600';
-    if (!activePhase) return 'bg-slate-700';
-    return 'bg-indigo-600';
-  };
-
-  const getVolumeStatusColor = (status?: string) => {
-    switch(status) {
-      case 'MANUTENÇÃO': return 'text-blue-400 bg-blue-400/10 border-blue-400/20';
-      case 'PRODUTIVO': return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
-      case 'OTIMIZADO': return 'text-indigo-400 bg-indigo-400/10 border-indigo-400/20';
-      case 'LIMITE': return 'text-orange-400 bg-orange-400/10 border-orange-400/20';
-      default: return 'text-slate-400 bg-slate-400/10 border-slate-400/20';
-    }
-  };
-
-  const handleSortPlan = () => {
-    setWeeklyPlan(prev => sortExercisesSmartly(prev));
-  };
-
-  const handleSortDay = (day: string) => {
-    setWorkouts(prev => ({
-        ...prev,
-        [day]: sortExercisesSmartly(prev[day])
-    }));
-  };
+  const getPhaseHeaderStyle = () => { if (isDeloadActive) return 'bg-emerald-950/30 border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.15)]'; if (!activePhase) return 'bg-slate-900 border-slate-800'; return 'bg-indigo-950/30 border-indigo-500/30 shadow-none'; };
+  const getPhaseIconStyle = () => { if (isDeloadActive) return 'bg-emerald-600'; if (!activePhase) return 'bg-slate-700'; return 'bg-indigo-600'; };
+  const getVolumeStatusColor = (status?: string) => { switch(status) { case 'MANUTENÇÃO': return 'text-blue-400 bg-blue-400/10 border-blue-400/20'; case 'PRODUTIVO': return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'; case 'OTIMIZADO': return 'text-indigo-400 bg-indigo-400/10 border-indigo-400/20'; case 'LIMITE': return 'text-orange-400 bg-orange-400/10 border-orange-400/20'; default: return 'text-slate-400 bg-slate-400/10 border-slate-400/20'; } };
+  const handleSortPlan = () => setWeeklyPlan(prev => sortExercisesSmartly(prev));
+  const handleSortDay = (day: string) => setWorkouts(prev => ({ ...prev, [day]: sortExercisesSmartly(prev[day]) }));
 
   return (
     <div className={`min-h-screen pb-24 md:pb-20 transition-colors duration-500 ${isDeloadActive ? 'bg-slate-950' : 'bg-slate-950'}`}>
@@ -757,6 +428,170 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6 md:py-10">
+        
+        {/* =========================================================
+            ABA PLANO (Tabela com Flexbox e Botão Novo Exercício)
+        ============================================================= */}
+        {activeTab === 'plan' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <section className={`bg-slate-900 border rounded-2xl overflow-hidden shadow-2xl transition-colors ${isDeloadActive ? 'border-emerald-500/30' : 'border-slate-800'}`}>
+              
+              <div className="p-5 md:p-8 border-b border-slate-800 flex flex-wrap justify-between items-center gap-4">
+                <div>
+                  <h2 className="text-lg md:text-2xl font-black text-white">Meta Semanal</h2>
+                  <p className="text-slate-400 text-xs md:text-sm">Volume alvo por grupo muscular, organizado por categoria.</p>
+                </div>
+                <div className="flex gap-4">
+                  <button onClick={handleSortPlan} className={`bg-slate-800 hover:bg-slate-700 px-6 py-3 rounded-xl font-bold flex items-center gap-2 border transition-all ${isDeloadActive ? 'text-emerald-400 border-emerald-500/20' : 'text-indigo-400 border-indigo-500/20'}`}>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"/></svg>
+                    Organizar
+                  </button>
+                  {/* BOTÃO NOVO EXERCÍCIO */}
+                  <button onClick={() => setShowCustomExerciseModal(true)} className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 transition-all shadow-lg active:scale-95">
+                     Novo Exercício
+                  </button>
+                  <button onClick={() => { setTargetDay(null); setShowSelector(true); }} className={`px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-xl transition-all ${isDeloadActive ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20' : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/20'} text-white`}>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                    Adicionar
+                  </button>
+                </div>
+              </div>
+              
+              <div className="relative w-full overflow-x-auto scrollbar-thin">
+                <div className="min-w-max">
+                   
+                   {/* HEADERS COM FLEXBOX */}
+                   <div className="flex bg-slate-900 text-[10px] uppercase font-black text-slate-500 sticky top-0 z-40 border-b border-slate-800">
+                      <div className="p-4 w-64 flex-shrink-0 sticky left-0 bg-slate-950 z-50 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 flex items-center">Exercício</div>
+                      <div className="p-4 w-20 flex-shrink-0 text-center sticky left-64 bg-slate-950 z-50 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 flex items-center justify-center">Séries</div>
+                      {visibleMuscles.map(m => {
+                        const isRelevantToFocusedEx = focusedPlanExerciseId ? (focusedPlanExerciseData?.muscles.some(mu => mu.name === m) ?? false) : false;
+                        const isPrimary = focusedPlanExerciseId ? (focusedPlanExerciseData?.muscles.some(mu => mu.name === m && mu.type === 'principal') ?? false) : false;
+                        return (
+                          <div key={m} className={`p-4 w-24 flex-shrink-0 text-center flex items-center justify-center transition-all duration-300 ${focusedPlanExerciseId ? (isRelevantToFocusedEx ? (isPrimary ? (isDeloadActive ? 'text-emerald-400 bg-emerald-500/10' : 'text-indigo-400 bg-indigo-500/10') : 'text-purple-400 bg-purple-500/10') : 'opacity-20 grayscale') : ''}`}>
+                            {getShortMuscleName(m)}
+                          </div>
+                        );
+                      })}
+                      <div className="p-4 w-12 flex-shrink-0 sticky right-0 bg-slate-900 text-center flex items-center justify-center cursor-pointer hover:bg-slate-800 transition-colors" onClick={() => setShowSecondary(!showSecondary)}>
+                         {showSecondary ? '[-]' : '[+]'}
+                      </div>
+                   </div>
+
+                   {/* CORPO DA TABELA COM FLEXBOX */}
+                   <div className="divide-y divide-slate-800/30">
+                     {weeklyPlan.length === 0 ? (
+                        <div className="p-20 text-center text-slate-500 italic w-full">Comece adicionando exercícios.</div>
+                     ) : (
+                        (Object.entries(groupedPlan) as [string, PlanItem[]][]).map(([category, items]) => {
+                           if (items.length === 0) return null;
+                           const isCollapsed = collapsedCategories.includes(category);
+                           const categorySeries = items.reduce((acc, item) => acc + (item.series || 0), 0);
+
+                           return (
+                              <React.Fragment key={category}>
+                                 {/* ROW DA CATEGORIA */}
+                                 <div className="flex group bg-slate-950 cursor-pointer hover:bg-slate-900 transition-colors border-y border-slate-800/50" onClick={() => toggleCategory(category)}>
+                                    <div className={`p-4 w-64 flex-shrink-0 sticky left-0 bg-slate-950 group-hover:bg-slate-900 z-30 font-black text-xs flex items-center gap-3 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors ${isDeloadActive ? 'text-emerald-300' : 'text-indigo-300'}`}>
+                                       <svg className={`w-4 h-4 transition-transform ${isCollapsed ? '' : 'rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7"/></svg>
+                                       <span>{category.toUpperCase()}</span>
+                                    </div>
+                                    <div className={`p-4 w-20 flex-shrink-0 text-center font-black text-xs sticky left-64 bg-slate-950 group-hover:bg-slate-900 z-30 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 flex items-center justify-center transition-colors ${isDeloadActive ? 'text-emerald-400/60' : 'text-indigo-400/60'}`}>
+                                       {categorySeries}S
+                                    </div>
+                                    <div className="p-4 flex-1 text-[10px] text-slate-600 font-bold uppercase tracking-widest italic flex items-center">
+                                       {items.length} {items.length === 1 ? 'exercício' : 'exercícios'} neste grupo
+                                    </div>
+                                 </div>
+                                 
+                                 {/* ROWS DOS EXERCÍCIOS */}
+                                 {!isCollapsed && items.map(item => {
+                                    const ex = fullExerciseCatalog.find(e => e.name === item.name);
+                                    const isRowFocused = focusedPlanExerciseId === item.id;
+                                    
+                                    return (
+                                       <React.Fragment key={item.id}>
+                                          <div className={`flex group transition-all hover:bg-slate-800/30 bg-slate-900 ${focusedPlanExerciseId && !isRowFocused ? 'opacity-30 grayscale' : ''}`}>
+                                             <div className={`p-3 pl-8 w-64 flex-shrink-0 font-bold text-sm sticky left-0 z-30 flex items-center gap-2 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors bg-slate-950 group-hover:bg-slate-900`}>
+                                                <div className={`w-1 h-4 rounded-full flex-shrink-0 transition-colors ${isRowFocused ? (isDeloadActive ? 'bg-emerald-400' : 'bg-indigo-400') : (isDeloadActive ? 'bg-emerald-500/20' : 'bg-indigo-500/20')}`}></div>
+                                                <span className="truncate flex-1 min-w-0">{item.name}</span>
+                                             </div>
+                                             <div className={`p-2 w-20 flex-shrink-0 sticky left-64 z-30 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 flex items-center justify-center transition-colors bg-slate-950 group-hover:bg-slate-900`}>
+                                                <input 
+                                                   type="number" 
+                                                   value={item.series || ''} 
+                                                   onFocus={(e) => { e.target.select(); setFocusedPlanExerciseId(item.id); }} 
+                                                   onBlur={() => setFocusedPlanExerciseId(null)}
+                                                   onChange={e => updateSeries(item.id, e.target.value === '' ? 0 : parseInt(e.target.value))} 
+                                                   className={`w-full bg-slate-800/50 border rounded-lg p-1.5 text-center font-black outline-none transition-all ${isRowFocused ? (isDeloadActive ? 'border-emerald-500 text-emerald-300 ring-2 ring-emerald-500/20' : 'border-indigo-500 text-indigo-300 ring-2 ring-indigo-500/20') : (isDeloadActive ? 'border-slate-700/30 text-emerald-400' : 'border-slate-700/30 text-indigo-400')}`} 
+                                                />
+                                             </div>
+                                             {visibleMuscles.map(m => {
+                                                const muscleData = ex?.muscles.find(mu => mu.name === m);
+                                                const individualVolume = (item.series || 0) * (muscleData?.contribution || 0);
+                                                const val = muscleData ? individualVolume.toFixed(1) : '-';
+                                                const isCellRelevantToFocusedEx = isRowFocused && muscleData;
+                                                const isPrimaryInCell = muscleData?.type === 'principal';
+                                                
+                                                return (
+                                                   <div key={m} className={`p-2 w-24 flex-shrink-0 flex items-center justify-center text-xs relative transition-all duration-300 ${val !== '-' ? 'text-slate-100 font-bold' : 'text-slate-700 opacity-20'} ${isCellRelevantToFocusedEx ? (isPrimaryInCell ? (isDeloadActive ? 'bg-emerald-500/20 text-emerald-200 scale-110 shadow-lg shadow-emerald-500/10' : 'bg-indigo-500/20 text-indigo-200 scale-110 shadow-lg shadow-indigo-500/10') : 'bg-purple-500/10 text-purple-300 scale-105') : focusedPlanExerciseId && isRowFocused ? 'opacity-10 scale-95' : ''}`}>
+                                                      <span className="relative z-10">{val}</span>
+                                                      {isCellRelevantToFocusedEx && <div className={`absolute inset-0 border-x ${isPrimaryInCell ? (isDeloadActive ? 'border-emerald-500/30' : 'border-indigo-500/30') : 'border-purple-500/20'}`}></div>}
+                                                   </div>
+                                                );
+                                             })}
+                                             <div className={`p-4 w-12 flex-shrink-0 sticky right-0 text-center flex items-center justify-center transition-colors bg-slate-950 group-hover:bg-slate-900`}>
+                                                <button onClick={() => removeFromPlan(item.id)} className="text-slate-700 hover:text-red-500 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                                             </div>
+                                          </div>
+                                       </React.Fragment>
+                                    );
+                                 })}
+                              </React.Fragment>
+                           );
+                        })
+                     )}
+                   </div>
+
+                   {/* FOOTER COM FLEXBOX (TOTAIS) */}
+                   <div className={`bg-slate-900 font-black border-t-2 sticky bottom-0 z-40 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] transition-colors ${isDeloadActive ? 'border-emerald-500' : 'border-indigo-500'}`}>
+                     <div className="flex">
+                        <div className="p-4 w-64 flex-shrink-0 sticky left-0 bg-slate-950 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 text-xs flex items-center">TOTAIS</div>
+                        <div className={`p-4 w-20 flex-shrink-0 text-center text-lg sticky left-64 bg-slate-950 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 flex items-center justify-center transition-colors ${isDeloadActive ? 'text-emerald-400' : 'text-indigo-400'}`}>
+                           {weeklyPlan.reduce((a, b) => a + (b.series || 0), 0)}
+                        </div>
+                        {visibleMuscles.map(m => (
+                           <div key={m} className={`p-4 w-24 flex-shrink-0 text-center tabular-nums flex items-center justify-center transition-colors ${isDeloadActive ? 'text-emerald-300' : 'text-indigo-300'}`}>
+                              {muscleTotals[m].toFixed(1)}
+                           </div>
+                        ))}
+                        <div className="p-4 w-12 flex-shrink-0 sticky right-0 bg-slate-900"></div>
+                     </div>
+                     <div className="flex border-t border-slate-800/50 bg-slate-950">
+                        <div className="p-4 w-64 flex-shrink-0 sticky left-0 bg-slate-950 text-[10px] text-slate-500 uppercase font-black shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 z-40 flex items-center">SAÚDE DO PLANO</div>
+                        <div className="p-4 w-20 flex-shrink-0 sticky left-64 bg-slate-950 z-40 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50"></div>
+                        {visibleMuscles.map(m => {
+                           const { label, color, bg, icon } = getVolumeLevelData(m, muscleTotals[m], globalStrength.score);
+                           return (
+                              <div key={m} className="p-3 w-24 flex-shrink-0 text-center uppercase flex items-center justify-center">
+                                 <div className={`flex flex-col items-center gap-1 ${bg} ${color} p-2 rounded-xl border border-white/5 shadow-inner transition-all duration-300 w-full`}>
+                                    <span className="text-xs leading-none">{icon}</span>
+                                    <span className="text-[8px] font-black tracking-tighter whitespace-nowrap">{label}</span>
+                                 </div>
+                              </div>
+                           );
+                        })}
+                        <div className="p-4 w-12 flex-shrink-0 sticky right-0 bg-slate-900"></div>
+                     </div>
+                   </div>
+
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* ... DEMAIS ABAS CONTINUAM INTACTAS COMO ESTAVAM ... */}
         {activeTab === 'analysis' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className={`flex flex-col md:flex-row justify-between items-center bg-slate-900 p-6 rounded-3xl border shadow-xl gap-4 transition-colors ${isDeloadActive ? 'border-emerald-500/30' : 'border-slate-800'}`}>
@@ -767,24 +602,9 @@ const App: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex bg-slate-800 p-1.5 rounded-2xl border border-slate-700">
-                      <button 
-                        onClick={() => setAnalysisView('realtime')}
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisView === 'realtime' ? (isDeloadActive ? 'bg-emerald-600' : 'bg-indigo-600') + ' text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-                      >
-                        Tempo Real
-                      </button>
-                      <button 
-                        onClick={() => setAnalysisView('statistics')}
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisView === 'statistics' ? (isDeloadActive ? 'bg-emerald-600' : 'bg-indigo-600') + ' text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-                      >
-                        Estatísticas
-                      </button>
-                      <button 
-                        onClick={() => setAnalysisView('ia')}
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisView === 'ia' ? (isDeloadActive ? 'bg-emerald-600' : 'bg-indigo-600') + ' text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-                      >
-                        Consultoria IA
-                      </button>
+                      <button onClick={() => setAnalysisView('realtime')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisView === 'realtime' ? (isDeloadActive ? 'bg-emerald-600' : 'bg-indigo-600') + ' text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>Tempo Real</button>
+                      <button onClick={() => setAnalysisView('statistics')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisView === 'statistics' ? (isDeloadActive ? 'bg-emerald-600' : 'bg-indigo-600') + ' text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>Estatísticas</button>
+                      <button onClick={() => setAnalysisView('ia')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisView === 'ia' ? (isDeloadActive ? 'bg-emerald-600' : 'bg-indigo-600') + ' text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>Consultoria IA</button>
                   </div>
                 </div>
 
@@ -1443,7 +1263,6 @@ const App: React.FC = () => {
                         const isPartofSuperSet = !!ex.superSetId && !isDeloadActive;
                         const isStart = isPartofSuperSet && (!prevEx || prevEx.superSetId !== ex.superSetId);
                         const isEnd = isPartofSuperSet && (!nextEx || nextEx.superSetId !== ex.superSetId);
-                        const isMiddle = isPartofSuperSet && !isStart && !isEnd;
 
                         const curData = fullExerciseCatalog.find(e => e.name === ex.name);
                         const nxtData = nextEx ? fullExerciseCatalog.find(e => e.name === nextEx.name) : null;
