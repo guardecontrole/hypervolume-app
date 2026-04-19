@@ -63,10 +63,18 @@ const App: React.FC = () => {
     reps: 0
   });
 
-  // Custom Exercises State
+  // =========================================================================
+  // STATE: EXERCÍCIOS CUSTOMIZADOS E UI
+  // =========================================================================
   const [customExercises, setCustomExercises] = useState<Exercise[]>([]);
   const [showCustomExerciseModal, setShowCustomExerciseModal] = useState(false);
-  const [newCustomExercise, setNewCustomExercise] = useState<{name: string, muscles: Record<string, number>}>({ name: '', muscles: {} });
+  const [editingExerciseName, setEditingExerciseName] = useState<string | null>(null);
+  const [newCustomExercise, setNewCustomExercise] = useState<{
+      name: string, 
+      muscles: Record<string, number>, 
+      isCompound: boolean, 
+      isGuided: boolean
+  }>({ name: '', muscles: {}, isCompound: true, isGuided: false });
 
   const [superSetSelection, setSuperSetSelection] = useState<{ day: string, sourceId: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -84,6 +92,8 @@ const App: React.FC = () => {
   const [analysisView, setAnalysisView] = useState<'realtime' | 'statistics' | 'ia'>('realtime');
   const [expandedExerciseId, setExpandedExerciseId] = useState<number | null>(null);
   const [collapsedCategories, setCollapsedCategories] = useState<string[]>([]);
+  
+  // STATE CRUCIAL QUE ESTAVA FALTANDO E CAUSOU O ERRO
   const [focusedPlanExerciseId, setFocusedPlanExerciseId] = useState<number | null>(null);
   const [achievement, setAchievement] = useState<any>(null);
 
@@ -138,7 +148,7 @@ const App: React.FC = () => {
     localStorage.setItem('hv_custom_exercises', JSON.stringify(customExercises));
   }, [weeklyPlan, workouts, workoutHistory, activePhaseId, currentWeek, userName, strengthProfiles, strengthInputs.bw, manualRir, manualProgression, manualMethodology, activeDays, isDeloadActive, customExercises, isMounted]);
 
-  // COMBINA EXERCÍCIOS NATIVOS COM PERSONALIZADOS
+  // COMBINA EXERCÍCIOS NATIVOS COM OS PERSONALIZADOS
   const fullExerciseCatalog = useMemo(() => {
       return [...PREDEFINED_EXERCISES, ...customExercises];
   }, [customExercises]);
@@ -203,19 +213,22 @@ const App: React.FC = () => {
 
   const todayName = useMemo(() => {
     const idx = new Date().getDay();
-    const normalizedIdx = idx === 0 ? 6 : idx - 1;
-    return DAYS_OF_WEEK[normalizedIdx];
+    return DAYS_OF_WEEK[idx === 0 ? 6 : idx - 1];
   }, []);
 
   const toggleDay = (day: string) => setActiveDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev].sort((a, b) => DAYS_OF_WEEK.indexOf(a) - DAYS_OF_WEEK.indexOf(b)).concat(day).sort((a, b) => DAYS_OF_WEEK.indexOf(a) - DAYS_OF_WEEK.indexOf(b)));
   const toggleCategory = (cat: string) => setCollapsedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
   const toggleExpandExercise = (id: number) => setExpandedExerciseId(prev => prev === id ? null : id);
 
-  // ADICIONAR EXERCÍCIO CUSTOMIZADO
-  const addCustomExercise = useCallback(() => {
+  // =========================================================================
+  // LOGICA DO GERENCIADOR DE EXERCÍCIOS CUSTOMIZADOS
+  // =========================================================================
+  const saveCustomExercise = useCallback(() => {
       if (!newCustomExercise.name) return;
-      if (fullExerciseCatalog.some(ex => ex.name.toLowerCase() === newCustomExercise.name.trim().toLowerCase())) {
-          alert("Já existe um exercício com este nome.");
+      const nameTrimmed = newCustomExercise.name.trim();
+
+      if (!editingExerciseName && fullExerciseCatalog.some(ex => ex.name.toLowerCase() === nameTrimmed.toLowerCase())) {
+          alert("Já existe um exercício com este nome no catálogo.");
           return;
       }
       
@@ -227,16 +240,56 @@ const App: React.FC = () => {
               contribution: parseFloat(contribution as any) / 100
           }));
 
+      if (mappedMuscles.length === 0) {
+          alert("Selecione a porcentagem de pelo menos um músculo (Ex: Peito 100%).");
+          return;
+      }
+
       const newCustomEx: Exercise = { 
-          name: newCustomExercise.name.trim(), 
+          name: nameTrimmed, 
           muscles: mappedMuscles,
-          isCompound: mappedMuscles.length > 1
+          isCompound: newCustomExercise.isCompound,
+          isGuided: newCustomExercise.isGuided
       };
 
-      setCustomExercises(prev => [...prev, newCustomEx]);
-      setNewCustomExercise({ name: '', muscles: {} });
-      setShowCustomExerciseModal(false);
-  }, [newCustomExercise, fullExerciseCatalog]);
+      setCustomExercises(prev => {
+          if (editingExerciseName) return prev.map(ex => ex.name === editingExerciseName ? newCustomEx : ex);
+          return [...prev, newCustomEx];
+      });
+
+      if (editingExerciseName && editingExerciseName !== nameTrimmed) {
+          setWeeklyPlan(prev => prev.map(p => p.name === editingExerciseName ? { ...p, name: nameTrimmed } : p));
+          setWorkouts(prev => {
+              const updated = { ...prev };
+              Object.keys(updated).forEach(day => {
+                  updated[day] = updated[day].map(wEx => wEx.name === editingExerciseName ? { ...wEx, name: nameTrimmed } : wEx);
+              });
+              return updated;
+          });
+      }
+
+      setNewCustomExercise({ name: '', muscles: {}, isCompound: true, isGuided: false });
+      setEditingExerciseName(null);
+  }, [newCustomExercise, editingExerciseName, fullExerciseCatalog]);
+
+  const loadExerciseForEdit = (ex: Exercise) => {
+      const musclesMap: Record<string, number> = {};
+      ex.muscles.forEach(m => musclesMap[m.name] = m.contribution * 100);
+      setNewCustomExercise({ name: ex.name, muscles: musclesMap, isCompound: ex.isCompound !== false, isGuided: !!ex.isGuided });
+      setEditingExerciseName(ex.name);
+  };
+
+  const removeCustomExercise = (name: string) => {
+      if (window.confirm(`Tem certeza que deseja excluir "${name}" do catálogo?`)) {
+          setCustomExercises(prev => prev.filter(ex => ex.name !== name));
+          if (editingExerciseName === name) {
+              setEditingExerciseName(null);
+              setNewCustomExercise({ name: '', muscles: {}, isCompound: true, isGuided: false });
+          }
+      }
+  };
+
+  // =========================================================================
 
   const handleInitiateSuperSet = (day: string, id: number) => { if (isDeloadActive) return; setSuperSetSelection({ day, sourceId: id }); };
   const handleQuickLink = (day: string, currentId: number, nextId: number) => { if (isDeloadActive) return; const newSuperSetId = Math.random().toString(36).substr(2, 9); setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => (ex.id === currentId || ex.id === nextId) ? { ...ex, superSetId: newSuperSetId } : ex) })); };
@@ -254,7 +307,7 @@ const App: React.FC = () => {
   const handleBreakSuperSet = (day: string, superSetId: string) => { setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => ex.superSetId === superSetId ? { ...ex, superSetId: undefined } : ex) })); };
 
   const handleExportBackup = () => { const allData = { ...localStorage }; const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; const today = new Date().toISOString().split('T')[0]; link.download = `backup_hypervolume_${today}.json`; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url); };
-  const handleImportBackup = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { const backupData = JSON.parse(e.target?.result as string); if (window.confirm("Atenção: A importação substituirá todos os seus dados atuais. O aplicativo será reiniciado. Deseja continuar?")) { localStorage.clear(); Object.keys(backupData).forEach((key) => { localStorage.setItem(key, backupData[key]); }); alert('Backup restaurado com sucesso! O app será reiniciado.'); window.location.reload(); } } catch (error) { alert('Erro ao ler o arquivo de backup. Verifique se é um JSON válido.'); console.error(error); } }; reader.readAsText(file); if (fileInputRef.current) fileInputRef.current.value = ''; };
+  const handleImportBackup = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { const backupData = JSON.parse(e.target?.result as string); if (window.confirm("Atenção: A importação substituirá todos seus dados atuais. O aplicativo será reiniciado. Deseja continuar?")) { localStorage.clear(); Object.keys(backupData).forEach((key) => { localStorage.setItem(key, backupData[key]); }); alert('Backup restaurado!'); window.location.reload(); } } catch (error) { alert('Erro ao ler o arquivo de backup.'); } }; reader.readAsText(file); if (fileInputRef.current) fileInputRef.current.value = ''; };
 
   if (!isMounted) return null;
 
@@ -275,11 +328,13 @@ const App: React.FC = () => {
         if (best1RMInSesssion > currentPR + 0.1) { updatedProfiles[baseExName] = best1RMInSesssion; foundNewPR = true; const newGlobal = calculateGlobalStrengthLevel(updatedProfiles, bw); achievementData = { exercise: baseExName, old1RM: currentPR, new1RM: best1RMInSesssion, oldScore: oldGlobal.score, newScore: newGlobal.score, oldLevel: oldGlobal.fullLevel, newLevel: newGlobal.fullLevel, changedLevel: oldGlobal.name !== newGlobal.name }; }
       }
     });
+
     if (foundNewPR) { setStrengthProfiles(updatedProfiles); setAchievement(achievementData); }
   };
 
   const handleSaveExercise = (day: string, exercise: WorkoutExercise) => { const newLog: WorkoutLog = { id: Date.now(), date: new Date().toISOString(), name: `Log: ${exercise.name}`, totalSeries: exercise.sets?.length || exercise.series || 0, split: { [day]: [JSON.parse(JSON.stringify(exercise))] }, phase: activePhase?.name, week: currentWeek }; monitorPRs(newLog); setWorkoutHistory(prev => [newLog, ...prev]); };
   const saveStrengthRecord = () => { if (strengthResult.oneRM > 0) { setStrengthProfiles(prev => ({ ...prev, [strengthInputs.exercise]: strengthResult.oneRM })); alert(`1RM de ${strengthInputs.exercise} atualizado: ${strengthResult.oneRM.toFixed(1)}kg`); } };
+  const updateProfileValue = (ex: string, val: string) => { const num = parseFloat(val) || 0; setStrengthProfiles(prev => ({ ...prev, [ex]: num })); };
   const handlePhaseActivation = (phaseId: string) => { setActivePhaseId(phaseId); setCurrentWeek(1); };
   const addToPlan = (name: string) => { setWeeklyPlan(prev => { if (prev.find(p => p.name === name)) return prev; return [...prev, { id: Date.now(), name, series: 0 }]; }); };
   const addToDay = (day: string, name: string, series?: number) => { const sCount = series || 3; const initialSets: WorkoutSet[] = Array.from({ length: sCount }).map(() => ({ id: Math.random().toString(36).substr(2, 9), reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null })); setWorkouts(prev => { const newEx: WorkoutExercise = { id: Date.now() + Math.random(), name, series: sCount, sets: initialSets, reps: 10, load: null, rir: activePhase ? activePhase.rirTarget : null }; const currentDayExs = prev[day] || []; return {...prev, [day]: [...currentDayExs, newEx]}; }); };
@@ -287,7 +342,7 @@ const App: React.FC = () => {
   const removeFromPlan = (id: number) => setWeeklyPlan(prev => prev.filter(p => p.id !== id));
   const updateWorkoutEx = (day: string, id: number, data: Partial<WorkoutExercise>) => setWorkouts(prev => ({ ...prev, [day]: prev[day].map(ex => ex.id === id ? { ...ex, ...data } : ex)}));
   const removeWorkoutEx = (day: string, id: number) => setWorkouts(prev => ({ ...prev, [day]: prev[day].filter(ex => ex.id !== id)}));
-  
+
   const handleSaveWeek = () => {
     const allExs = (Object.values(workouts) as WorkoutExercise[][]).reduce((acc: WorkoutExercise[], v) => acc.concat(v), []);
     const totalSeries = allExs.reduce((acc, ex) => acc + (ex.sets?.length || ex.series || 0), 0);
@@ -298,10 +353,10 @@ const App: React.FC = () => {
 
   const handleApplyReturn = (newSplit: WorkoutSplit, phaseId: string) => { setWorkouts(newSplit); setActivePhaseId(phaseId); setCurrentWeek(1); setActiveTab('workouts'); };
   const removeHistoryItem = (id: number) => { if (window.confirm("Tem certeza que deseja excluir este treino?")) setWorkoutHistory(prev => prev.filter(item => item.id !== id)); };
-  const clearHistory = () => { if (window.confirm("Tem certeza que deseja apagar TODO o histórico? Essa ação é irreversível.")) setWorkoutHistory([]); };
+  const clearHistory = () => { if (window.confirm("Tem certeza que deseja apagar TODO o histórico?")) setWorkoutHistory([]); };
   const handleDragStart = (exercise: WorkoutExercise, fromDay: string) => { if (isDeloadActive) return; setDraggedItem({ exercise, fromDay }); };
   const handleDragOver = (e: React.DragEvent, day: string) => { e.preventDefault(); if (isDeloadActive) return; setDragOverDay(day); };
-  const handleDragLeave = () => setDragOverDay(null);
+  const handleDragLeave = () => { setDragOverDay(null); };
   const handleDrop = (e: React.DragEvent, toDay: string) => { e.preventDefault(); setDragOverDay(null); if (!draggedItem || draggedItem.fromDay === toDay || isDeloadActive) { setDraggedItem(null); return; } setWorkouts(prev => { const sourceDayExs = (prev[draggedItem.fromDay] || []).filter(ex => ex.id !== draggedItem.exercise.id); const targetDayExs = [...(prev[toDay] || []), draggedItem.exercise]; return { ...prev, [draggedItem.fromDay]: sourceDayExs, [toDay]: targetDayExs }; }); setDraggedItem(null); };
 
   const generateSmartSplit = () => {
@@ -337,7 +392,7 @@ const App: React.FC = () => {
 
   return (
     <div className={`min-h-screen pb-24 md:pb-20 transition-colors duration-500 ${isDeloadActive ? 'bg-slate-950' : 'bg-slate-950'}`}>
-      <header className={`backdrop-blur-md border-b sticky top-0 z-50 transition-colors duration-300 ${isDeloadActive ? 'bg-emerald-950/40 border-emerald-900/50' : 'bg-slate-900/80 border-slate-800'}`}>
+      <header className={`backdrop-blur-md border-b sticky top-0 z-40 transition-colors duration-300 ${isDeloadActive ? 'bg-emerald-950/40 border-emerald-900/50' : 'bg-slate-900/80 border-slate-800'}`}>
         <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col lg:flex-row justify-between items-center gap-3">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
@@ -365,17 +420,8 @@ const App: React.FC = () => {
             </div>
           </div>
           <nav className="flex bg-slate-800/50 p-1 rounded-xl overflow-x-auto no-scrollbar">
-            {[
-              { id: 'strength', label: 'Força', icon: '🦾' },
-              { id: 'periodization', label: 'Estratégia', icon: '📖' },
-              { id: 'plan', label: 'Plano', icon: '📐' },
-              { id: 'workouts', label: 'Treinos', icon: '🏋️' },
-              { id: 'analysis', label: 'Análise', icon: '📊' },
-              { id: 'history', label: 'Histórico', icon: '🗓️' },
-            ].map(tab => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === tab.id ? (isDeloadActive ? 'bg-emerald-600 shadow-emerald-600/30' : 'bg-slate-700') + ' text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}>
-                <span>{tab.icon}</span> {tab.label}
-              </button>
+            {[{ id: 'strength', label: 'Força', icon: '🦾' }, { id: 'periodization', label: 'Estratégia', icon: '📖' }, { id: 'plan', label: 'Plano', icon: '📐' }, { id: 'workouts', label: 'Treinos', icon: '🏋️' }, { id: 'analysis', label: 'Análise', icon: '📊' }, { id: 'history', label: 'Histórico', icon: '🗓️' }].map(tab => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === tab.id ? (isDeloadActive ? 'bg-emerald-600 shadow-emerald-600/30' : 'bg-slate-700') + ' text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}><span>{tab.icon}</span> {tab.label}</button>
             ))}
           </nav>
         </div>
@@ -383,9 +429,9 @@ const App: React.FC = () => {
 
       <main className="max-w-7xl mx-auto px-4 py-6 md:py-10">
         
-        {/* =========================================
-            ABA PLANO (COM FLEXBOX PRA COLAR A COLUNA E NOVO BOTAO)
-        ============================================= */}
+        {/* =========================================================
+            ABA PLANO (Tabela Flexbox + Novo Exercício)
+        ============================================================= */}
         {activeTab === 'plan' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <section className={`bg-slate-900 border rounded-2xl overflow-hidden shadow-2xl transition-colors ${isDeloadActive ? 'border-emerald-500/30' : 'border-slate-800'}`}>
@@ -400,10 +446,11 @@ const App: React.FC = () => {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"/></svg>
                     Organizar
                   </button>
-                  <button onClick={() => setShowCustomExerciseModal(true)} className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 transition-all shadow-lg">
+                  {/* BOTÃO NOVO EXERCÍCIO */}
+                  <button onClick={() => setShowCustomExerciseModal(true)} className="px-6 py-3 rounded-xl font-bold flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 transition-all shadow-lg active:scale-95">
                      Novo Exercício
                   </button>
-                  <button onClick={() => { setTargetDay(null); setShowSelector(true); }} className={`px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-xl transition-all ${isDeloadActive ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-indigo-600 hover:bg-indigo-500'} text-white`}>
+                  <button onClick={() => { setTargetDay(null); setShowSelector(true); }} className={`px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-xl transition-all ${isDeloadActive ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20' : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/20'} text-white`}>
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
                     Adicionar
                   </button>
@@ -413,7 +460,7 @@ const App: React.FC = () => {
               <div className="relative w-full overflow-x-auto scrollbar-thin">
                 <div className="min-w-max">
                    
-                   {/* HEADERS */}
+                   {/* HEADERS COM FLEXBOX */}
                    <div className="flex bg-slate-900 text-[10px] uppercase font-black text-slate-500 sticky top-0 z-40 border-b border-slate-800">
                       <div className="p-4 w-64 flex-shrink-0 sticky left-0 bg-slate-950 z-50 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 flex items-center">Exercício</div>
                       <div className="p-4 w-20 flex-shrink-0 text-center sticky left-64 bg-slate-950 z-50 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 flex items-center justify-center">Séries</div>
@@ -426,12 +473,12 @@ const App: React.FC = () => {
                           </div>
                         );
                       })}
-                      <div className="p-4 w-12 flex-shrink-0 sticky right-0 bg-slate-900 text-center flex items-center justify-center cursor-pointer hover:bg-slate-800" onClick={() => setShowSecondary(!showSecondary)}>
+                      <div className="p-4 w-12 flex-shrink-0 sticky right-0 bg-slate-900 text-center flex items-center justify-center cursor-pointer hover:bg-slate-800 transition-colors" onClick={() => setShowSecondary(!showSecondary)}>
                          {showSecondary ? '[-]' : '[+]'}
                       </div>
                    </div>
 
-                   {/* CORPO DA TABELA */}
+                   {/* CORPO DA TABELA COM FLEXBOX */}
                    <div className="divide-y divide-slate-800/30">
                      {weeklyPlan.length === 0 ? (
                         <div className="p-20 text-center text-slate-500 italic w-full">Comece adicionando exercícios.</div>
@@ -468,7 +515,7 @@ const App: React.FC = () => {
                                           <div className={`flex group transition-all cursor-pointer hover:bg-slate-800/30 ${isExpanded ? 'bg-slate-800/40' : 'bg-slate-900'} ${focusedPlanExerciseId && !isRowFocused ? 'opacity-30 grayscale' : ''}`} onClick={() => toggleExpandExercise(item.id)}>
                                              <div className={`p-3 pl-8 w-64 flex-shrink-0 font-bold text-sm sticky left-0 z-30 flex items-center gap-2 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 transition-colors bg-slate-950 group-hover:bg-slate-900`}>
                                                 <div className={`w-1 h-4 rounded-full flex-shrink-0 transition-colors ${isRowFocused ? (isDeloadActive ? 'bg-emerald-400' : 'bg-indigo-400') : (isDeloadActive ? 'bg-emerald-500/20' : 'bg-indigo-500/20')}`}></div>
-                                                <span className="truncate flex-1 min-w-0">{item.name}</span>
+                                                <span className="truncate flex-1 min-w-0 text-white">{item.name}</span>
                                              </div>
                                              <div className={`p-2 w-20 flex-shrink-0 sticky left-64 z-30 shadow-[4px_0_12px_rgba(0,0,0,0.5)] border-r border-slate-800/50 flex items-center justify-center transition-colors bg-slate-950 group-hover:bg-slate-900`} onClick={(e) => e.stopPropagation()}>
                                                 <input 
@@ -486,6 +533,7 @@ const App: React.FC = () => {
                                                 const val = muscleData ? individualVolume.toFixed(1) : '-';
                                                 const isCellRelevantToFocusedEx = isRowFocused && muscleData;
                                                 const isPrimaryInCell = muscleData?.type === 'principal';
+                                                
                                                 return (
                                                    <div key={m} className={`p-2 w-24 flex-shrink-0 flex items-center justify-center text-xs relative transition-all duration-300 ${val !== '-' ? 'text-slate-100 font-bold' : 'text-slate-700 opacity-20'} ${isCellRelevantToFocusedEx ? (isPrimaryInCell ? (isDeloadActive ? 'bg-emerald-500/20 text-emerald-200 scale-110 shadow-lg shadow-emerald-500/10' : 'bg-indigo-500/20 text-indigo-200 scale-110 shadow-lg shadow-indigo-500/10') : 'bg-purple-500/10 text-purple-300 scale-105') : focusedPlanExerciseId && isRowFocused ? 'opacity-10 scale-95' : ''}`}>
                                                       <span className="relative z-10">{val}</span>
@@ -552,7 +600,7 @@ const App: React.FC = () => {
                            const { label, color, bg, icon } = getVolumeLevelData(m, muscleTotals[m], globalStrength.score);
                            return (
                               <div key={m} className="p-3 w-24 flex-shrink-0 text-center uppercase flex items-center justify-center">
-                                 <div className={`flex flex-col items-center gap-1 ${bg} ${color} p-2 rounded-xl border border-white/5 shadow-inner transition-all duration-300`}>
+                                 <div className={`flex flex-col items-center gap-1 ${bg} ${color} p-2 rounded-xl border border-white/5 shadow-inner transition-all duration-300 w-full`}>
                                     <span className="text-xs leading-none">{icon}</span>
                                     <span className="text-[8px] font-black tracking-tighter whitespace-nowrap">{label}</span>
                                  </div>
@@ -569,7 +617,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* ... DEMAIS ABAS PERMANECEM INTACTAS DO SEU CÓDIGO ... */}
+        {/* ... DEMAIS ABAS CONTINUAM INTACTAS COMO ESTAVAM ... */}
         {activeTab === 'analysis' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className={`flex flex-col md:flex-row justify-between items-center bg-slate-900 p-6 rounded-3xl border shadow-xl gap-4 transition-colors ${isDeloadActive ? 'border-emerald-500/30' : 'border-slate-800'}`}>
@@ -1241,6 +1289,7 @@ const App: React.FC = () => {
                         const isPartofSuperSet = !!ex.superSetId && !isDeloadActive;
                         const isStart = isPartofSuperSet && (!prevEx || prevEx.superSetId !== ex.superSetId);
                         const isEnd = isPartofSuperSet && (!nextEx || nextEx.superSetId !== ex.superSetId);
+                        const isMiddle = isPartofSuperSet && !isStart && !isEnd;
 
                         const curData = fullExerciseCatalog.find(e => e.name === ex.name);
                         const nxtData = nextEx ? fullExerciseCatalog.find(e => e.name === nextEx.name) : null;
@@ -1415,24 +1464,51 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL DE NOVO EXERCÍCIO CUSTOMIZADO */}
+      {/* =====================================================================
+          NOVO MODAL DE GERENCIAMENTO E CRIAÇÃO DE EXERCÍCIOS CUSTOMIZADOS
+      ========================================================================= */}
       {showCustomExerciseModal && (
           <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto">
-              <div className="bg-slate-900 rounded-[2.5rem] shadow-2xl p-8 w-full max-w-3xl border border-slate-700 animate-in zoom-in-95 duration-200">
-                  <h3 className="text-2xl font-black text-white mb-6 uppercase tracking-tighter">Novo Exercício Personalizado</h3>
+              <div className="bg-slate-900 rounded-[2.5rem] shadow-2xl p-8 w-full max-w-3xl border border-slate-700 animate-in zoom-in-95 duration-200 my-8">
+                  <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-2xl font-black text-white uppercase tracking-tighter">
+                          {editingExerciseName ? "Editar Exercício" : "Criar Exercício"}
+                      </h3>
+                      <button onClick={() => { setShowCustomExerciseModal(false); setEditingExerciseName(null); setNewCustomExercise({name: '', muscles: {}, isCompound: true, isGuided: false}); }} className="text-slate-500 hover:text-white transition-colors">
+                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                  </div>
                   
                   <input 
                     type="text" 
                     value={newCustomExercise.name} 
                     onChange={(e) => setNewCustomExercise(prev => ({ ...prev, name: e.target.value }))} 
-                    className="w-full p-4 rounded-2xl bg-slate-800 border border-slate-700 text-white mb-8 focus:ring-2 focus:ring-indigo-500 outline-none font-bold" 
+                    className="w-full p-4 rounded-2xl bg-slate-800 border border-slate-700 text-white mb-6 focus:ring-2 focus:ring-indigo-500 outline-none font-bold" 
                     placeholder="Ex: Supino Declinado Articulado" 
                   />
+
+                  {/* NOVOS CONTROLES: LIVRE vs MÁQUINA e MULTI vs ISOLADO */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                      <div>
+                          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Mecânica do Movimento</h4>
+                          <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
+                             <button onClick={() => setNewCustomExercise(p => ({...p, isCompound: true}))} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${newCustomExercise.isCompound ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>Multiarticular</button>
+                             <button onClick={() => setNewCustomExercise(p => ({...p, isCompound: false}))} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${!newCustomExercise.isCompound ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>Isolado</button>
+                          </div>
+                      </div>
+                      <div>
+                          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Tipo de Carga</h4>
+                          <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
+                             <button onClick={() => setNewCustomExercise(p => ({...p, isGuided: false}))} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${!newCustomExercise.isGuided ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>Peso Livre</button>
+                             <button onClick={() => setNewCustomExercise(p => ({...p, isGuided: true}))} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${newCustomExercise.isGuided ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>Máquina/Cabo</button>
+                          </div>
+                      </div>
+                  </div>
                   
                   <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Contribuição Muscular (%)</h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-64 overflow-y-auto pr-2 mb-8 scrollbar-thin">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-48 overflow-y-auto pr-2 mb-6 scrollbar-thin">
                       {MUSCLE_SORT_ORDER.map(muscle => (
-                          <div key={muscle} className="bg-slate-950/50 p-3 rounded-xl border border-slate-800 flex flex-col justify-between">
+                          <div key={muscle} className={`p-3 rounded-xl border flex flex-col justify-between transition-colors ${(newCustomExercise.muscles[muscle] || 0) > 0 ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-slate-950/50 border-slate-800'}`}>
                               <label className="block text-[9px] font-bold text-slate-400 mb-2 truncate uppercase tracking-widest" title={muscle}>
                                 {getShortMuscleName(muscle)}
                               </label>
@@ -1444,24 +1520,49 @@ const App: React.FC = () => {
                                   className="w-full p-2 bg-slate-800 rounded-lg text-white text-center text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-black" 
                                   placeholder="0" 
                                 />
-                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-bold">%</span>
+                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-bold pointer-events-none">%</span>
                               </div>
                           </div>
                       ))}
                   </div>
                   
                   <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
-                      <button onClick={() => setShowCustomExerciseModal(false)} className="px-6 py-3 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 font-bold transition-all text-xs uppercase tracking-widest">
-                        Cancelar
-                      </button>
+                      {editingExerciseName && (
+                          <button onClick={() => { setEditingExerciseName(null); setNewCustomExercise({name: '', muscles: {}, isCompound: true, isGuided: false}); }} className="px-6 py-3 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 font-bold transition-all text-xs uppercase tracking-widest">
+                            Cancelar Edição
+                          </button>
+                      )}
                       <button 
-                        onClick={addCustomExercise} 
+                        onClick={saveCustomExercise} 
                         disabled={!newCustomExercise.name} 
                         className="px-6 py-3 rounded-xl bg-indigo-600 text-white font-bold shadow-lg hover:bg-indigo-500 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-xs uppercase tracking-widest"
                       >
-                        Salvar Exercício
+                        {editingExerciseName ? 'Atualizar Exercício' : 'Salvar Novo Exercício'}
                       </button>
                   </div>
+
+                  {/* LISTAGEM DOS EXERCÍCIOS CRIADOS PARA EDIÇÃO/EXCLUSÃO */}
+                  {customExercises.length > 0 && (
+                      <div className="mt-8 pt-6 border-t border-slate-800">
+                          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Gerenciar Meus Exercícios</h4>
+                          <div className="space-y-3 max-h-48 overflow-y-auto pr-2 scrollbar-thin">
+                              {customExercises.map(ex => (
+                                  <div key={ex.name} className="flex justify-between items-center bg-slate-800/30 border border-slate-700/50 p-3 rounded-xl">
+                                      <div>
+                                          <span className="text-sm font-bold text-white block">{ex.name}</span>
+                                          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5 block">
+                                              {ex.isCompound ? 'Multiarticular' : 'Isolado'} • {ex.isGuided ? 'Máquina/Cabo' : 'Peso Livre'}
+                                          </span>
+                                      </div>
+                                      <div className="flex gap-2">
+                                          <button onClick={() => loadExerciseForEdit(ex)} className="px-3 py-1.5 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors">Editar</button>
+                                          <button onClick={() => removeCustomExercise(ex.name)} className="px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors">Excluir</button>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  )}
               </div>
           </div>
       )}
